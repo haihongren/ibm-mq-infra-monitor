@@ -1,0 +1,35 @@
+{
+	"global": {
+		"account_id": "insert_your_RPM_account_ID_here",
+		"insights_mode": {
+			"insights_insert_key": "insert_your_insights_insert_key_here"
+		},
+		"infra_mode": {
+			"rpc_listener_port": 9001
+		},
+		"dashboards": {
+			"admin_api_key": "insert_your_admin_api_key_here",
+			"installer_url": "insert_your_installer_url_or_leave_blank",
+			"integration_guid": "insert_your_integration_guid_here",
+			"dashboard_install": "normal"			
+		},
+		"queueIgnores": 
+	   		[
+		   		"SYSTEM\\..*",
+		   		"AMQ.\\d\\d.*",
+		   		"Amq\\.Mqexplorer\\..*"
+	   		]
+	},
+	"agents": [
+	           {
+	        	   "name": "queue-manager-short-name",
+	        	   "host": "127.0.0.1",
+	        	   "port": 1414,
+	        	   "username": "",
+	        	   "queueManager": "queu-manager-name",
+	        	   "channel": "SYSTEM.DEF.SVRCONN",
+	        	   "queueIgnores": 
+	        	     []
+	           }
+	]
+}

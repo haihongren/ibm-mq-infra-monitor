@@ -1,0 +1,139 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'findbugs'
+apply plugin: 'com.palantir.jacoco-coverage'
+apply plugin: 'com.palantir.jacoco-full-report'
+
+sourceCompatibility = JavaVersion.VERSION_1_6
+targetCompatibility = JavaVersion.VERSION_1_6
+
+// place all MQ Client Jars in the mqlib folder
+// or change the directory below to point to the right MQ Client jars
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.palantir:jacoco-coverage:0.4.0'
+    }
+}
+
+repositories {
+    maven {
+        url 'https://repo1.maven.org/maven2'
+    }
+    flatDir {
+        dirs 'mqlib'
+    }
+    mavenLocal()
+    jcenter()
+}
+
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
+dependencies {
+    compile "com.newrelic.experts:infra_publish:${project['infra_publish.version']}"
+    compile "ch.qos.logback:logback-classic:${project['logback-classic.version']}"
+
+    testCompile "com.google.code.findbugs:annotations:${project['findbugs.version']}"
+    testCompile "junit:junit:${project['junit.version']}"
+    testCompile "org.mockito:mockito-core:${project['mockito.version']}"
+
+    // The MQ libraries can not be included for licensing reasons. They are available
+    // from the end-user installation of MQ
+    provided fileTree(dir: 'mqlib', includes: ['*.jar'])
+}
+
+jar {
+    dependsOn configurations.runtime
+    from {
+        (configurations.runtime - configurations.provided).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    manifest {
+        attributes "Main-Class": "com.newrelic.infra.ibmmq.MQRunnerMain"
+    }
+    archiveName 'plugin.jar'
+}
+
+task copyJarToBin(type: Copy) {
+    from jar // shortcut for createJar.outputs.files
+    into "$distsDir"
+}
+
+task copyToConfig(type: Copy) {
+    from 'config'
+    into "$distsDir/config"
+    include 'logback.xml', 'plugin.template.json', 'newrelic.template.json'
+}
+
+task copyScripts(type: Copy) {
+    from 'scripts'
+    into "$distsDir"
+}
+
+task copyReadMe(type: Copy) {
+    from projectDir
+    into "$distsDir"
+    include 'README.md'
+}
+
+build.dependsOn "copyJarToBin"
+build.dependsOn "copyToConfig"
+build.dependsOn "copyScripts"
+build.dependsOn "copyReadMe"
+
+// Findbugs is responsible for static analysis of Java code for common mistakes and risks
+// See: https://docs.gradle.org/current/dsl/org.gradle.api.plugins.quality.FindBugsExtension.html
+tasks.withType(FindBugs) {
+  // Produce a useful HTML report when developing locally, otherwise use XML for Jenkins integration
+  reports {
+    xml.enabled = System.getenv("JENKINS_URL") != null
+    html.enabled = System.getenv("JENKINS_URL") == null
+  }
+}
+findbugs {
+  // Manage which findbugs rules you want to apply either by editing FindBugsFilter.xml for general rules
+  // or by adding @SuppressFBWarnings annotations to specific methods/classes in your Java code files
+  excludeFilter = file("$project.rootDir/FindBugsFilter.xml")
+  reportsDir = file("$project.buildDir/findbugsReports")
+  ignoreFailures = false
+  effort = "max"
+  reportLevel = "low"
+}
+
+// Jacoco is responsible for tracking how much of your code has been tested
+// See: https://github.com/palantir/gradle-jacoco-coverage
+jacocoCoverage {
+  reportThreshold 0.00
+  fileThreshold 0.00
+  fileThreshold 0.0, ~'.*\\$InjectAdapter\\.java'
+  fileThreshold 0.0, ~'.*\\$ModuleAdapter\\.java'
+}
+jacoco {
+  toolVersion = '0.7.5.201505241946'
+}
+def generatedSources = ['**/*\$\$*']
+jacocoTestReport {
+    doFirst {
+        classDirectories = fileTree(dir: "${buildDir}/classes/main/").exclude(generatedSources)
+    }
+    additionalSourceDirs = files(sourceSets.main.allSource.srcDirs)
+    sourceDirectories = files(sourceSets.main.allSource.srcDirs)
+    classDirectories =  files(sourceSets.main.output)
+    reports {
+        html.enabled = true
+        xml.enabled = true
+        csv.enabled = false
+    }
+}
+
+jacocoFull {
+}
+afterEvaluate {
+  jacocoFullReport.dependsOn jacocoTestReport
+}
