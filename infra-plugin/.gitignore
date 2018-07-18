@@ -1,0 +1,15 @@
+pkg
+.bin
+!bin/supply
+!compile
+/bin/g*
+fixtures
+*.zip
+**/.DS_Store
+.cache
+src/golang.org
+**/.vscode
+src/github.com
+src/google.golang.org
+src/gopkg.in
+**/.gometalinter.json

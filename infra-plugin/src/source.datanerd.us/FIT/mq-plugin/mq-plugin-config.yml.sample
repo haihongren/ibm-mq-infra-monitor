@@ -1,0 +1,12 @@
+integration_name: com.newrelic.ibm-mq-plugin
+
+instances:
+  - name: <INSTANCE IDENTIFIER>
+    command: metrics
+    arguments:
+      jmx_monitoring_service_host: localhost
+      jmx_monitoring_service_port: 9001
+      jmx_connection_name: all
+    labels:
+      env: test
+

@@ -1,0 +1,24 @@
+name: com.newrelic.ibm-mq-plugin
+description: Reports status and metrics for infra-jmx-plugin service
+protocol_version: 1
+os: linux
+
+commands:
+  metrics:
+    command:
+      - ./bin/mq-plugin
+      - --metrics
+    interval: 60
+
+  inventory:
+    command:
+      - ./bin/mq-plugin
+      - --inventory
+    prefix: config/mq-plugin
+    interval: 60
+    
+  events:
+    command:
+    - ./bin/mq-plugin
+    - --events
+    interval: 60
