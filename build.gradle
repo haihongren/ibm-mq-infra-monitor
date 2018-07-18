@@ -37,6 +37,7 @@ configurations {
 dependencies {
     compile "com.newrelic.experts:infra_publish:${project['infra_publish.version']}"
     compile "ch.qos.logback:logback-classic:${project['logback-classic.version']}"
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: "${project['apache_commons-lang3.version']}"
 
     testCompile "com.google.code.findbugs:annotations:${project['findbugs.version']}"
     testCompile "junit:junit:${project['junit.version']}"
