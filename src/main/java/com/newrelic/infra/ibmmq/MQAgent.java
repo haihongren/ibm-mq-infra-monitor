@@ -1,10 +1,11 @@
 package com.newrelic.infra.ibmmq;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
+
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,43 +43,68 @@ public class MQAgent extends Agent {
 	private static final Logger logger = LoggerFactory.getLogger(MQAgent.class);
 
 	private boolean accessQueueMode = false;
-	
+
 	private String serverHost = DEFAULT_SERVER_HOST;
 	private int serverPort = DEFAULT_SERVER_PORT;
-	private String serverAuthUser = "";
-	private String serverAuthPassword = "";
+	private String serverAuthUser = StringUtils.EMPTY;
+	private String serverAuthPassword = StringUtils.EMPTY;
 	private String serverChannelName = "SYSTEM.DEF.SVRCONN";
 	private String serverQueueManagerName = null;
-	private String eventType = null;
+	private String eventType = DEFAULT_EVENT_TYPE;
 
 	private List<Pattern> queueIgnores = new ArrayList<Pattern>();
+
+
+	private static final Map<Integer,String> channelTypeMap;
+	private static final Map<Integer,String> channelStatusMap;
+	static{
+		Map<Integer,String> sChannelStatus = new HashMap<Integer,String>();
+		sChannelStatus.put(CMQCFC.MQCHS_BINDING, "BINDING");
+		sChannelStatus.put(CMQCFC.MQCHS_STARTING, "STARTING");
+		sChannelStatus.put(CMQCFC.MQCHS_RUNNING, "RUNNING");
+		sChannelStatus.put( CMQCFC.MQCHS_PAUSED, "PAUSED");
+		sChannelStatus.put(CMQCFC.MQCHS_STOPPING, "STOPPING");
+		sChannelStatus.put(CMQCFC.MQCHS_RETRYING, "RETRYING");
+		sChannelStatus.put(CMQCFC.MQCHS_STOPPED, "STOPPED");
+
+		sChannelStatus.put(CMQCFC.MQCHS_REQUESTING, "REQUESTING");
+		sChannelStatus.put(CMQCFC.MQCHS_DISCONNECTED, "DISCONNECTED");
+		sChannelStatus.put(CMQCFC.MQCHS_INACTIVE, "INACTIVE");
+		sChannelStatus.put(CMQCFC.MQCHS_INITIALIZING, "INITIALIZING");
+		sChannelStatus.put(CMQCFC.MQCHS_SWITCHING, "SWITCHING");
+
+		channelStatusMap = Collections.unmodifiableMap(sChannelStatus);
+
+		Map<Integer,String> mChannelType = new HashMap<Integer,String>();
+		mChannelType.put(CMQXC.MQCHT_SENDER, "SENDER");
+		mChannelType.put(CMQXC.MQCHT_SERVER, "SERVER");
+		mChannelType.put(CMQXC.MQCHT_RECEIVER, "RECEIVER");
+		mChannelType.put(CMQXC.MQCHT_REQUESTER, "REQUESTER");
+		mChannelType.put(CMQXC.MQCHT_CLNTCONN, "CLNTCONN");
+		mChannelType.put(CMQXC.MQCHT_SVRCONN, "SVRCONN");
+		mChannelType.put(CMQXC.MQCHT_ALL, "ALL");
+
+		channelTypeMap = Collections.unmodifiableMap(mChannelType);
+	}
+
 
 	public void setServerQueueManagerName(String serverQueueManagerName) {
 		this.serverQueueManagerName = serverQueueManagerName;
 	}
 
 	public void setServerHost(String host) {
-		if ((host != null) && !host.isEmpty()) {
-			this.serverHost = host;
-		} else {
-			this.serverHost = DEFAULT_SERVER_HOST;
-		}
+		this.serverHost = StringUtils.isNotBlank(host) ? host : DEFAULT_SERVER_HOST;
+
 	}
 	public String getServerHost() {
-		if ((this.serverHost != null) && !this.serverHost.isEmpty()) {
-			return this.serverHost;
-		}
+		return this.serverHost;
 
-		return DEFAULT_SERVER_HOST;
 	}
 
 	public void setServerPort(int port) {
-		if (!(port <= 0) && !(port >= 65535)) {
-			this.serverPort = port;
-		} else {
-			logger.error("Invalid server port '" + serverPort + "' using default");
-			this.serverPort = DEFAULT_SERVER_PORT;
-		}
+		this.serverPort = (port >0 && port < 65535) ? port : DEFAULT_SERVER_PORT;
+//		logger.info("Using Server Port= {} ", this.serverPort);
+
 	}
 	public int getServerPort() {
 		return this.serverPort;
@@ -97,29 +123,18 @@ public class MQAgent extends Agent {
 	}
 
 	public void setEventType(String eventType) {
-		if ((eventType != null) && !eventType.isEmpty()) {
-			this.eventType = eventType;
-		} else {
-			this.eventType = DEFAULT_EVENT_TYPE;
-		}
+		this.eventType = StringUtils.isNotBlank(eventType) ? eventType : DEFAULT_EVENT_TYPE;
+
 	}
 	public String getEventType() {
-		if ((this.eventType != null) && !this.eventType.isEmpty()) {
-			return this.eventType;
-		}
-
-		return DEFAULT_EVENT_TYPE;
+		return  this.eventType;
 	}
-	
+
 	public MQAgent() {
 		super();
-		String serviceMode = System.getProperty(QUEUE_ACCESS_PROPERTY, "true");
-		//logger.info("Using newrelic.queue.access.allow " + serviceMode);
-		if (serviceMode.equalsIgnoreCase("false")) {
-			accessQueueMode = false;
-		} else {
-			accessQueueMode = true;
-		}
+		accessQueueMode =  BooleanUtils.toBoolean( System.getProperty(QUEUE_ACCESS_PROPERTY, "true"));
+		logger.debug("Using newrelic.queue.access.allow ={} accessQueueMode={}", System.getProperty(QUEUE_ACCESS_PROPERTY, "true") , accessQueueMode);
+
 	}
 
 	@Override
@@ -142,13 +157,12 @@ public class MQAgent extends Agent {
 			reportChannelStats(mqQueueManager, metricReporter);
 			mqQueueManager.disconnect();
 		} catch (MQException e) {
-			logger.error("Error occured fetching metrics for " + this.getServerHost() + ":" + this.getServerPort() + "/"
-					+ serverQueueManagerName);
+			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
 			throw e;
 		}
 	}
-	
-	
+
+
 
 	@SuppressWarnings("unchecked")
 	private MQQueueManager connect() throws MQException {
@@ -170,7 +184,7 @@ public class MQAgent extends Agent {
 
 		PCFMessageAgent agent = new PCFMessageAgent();
 		PCFParameter[] parameters = {
-				new MQCFST(MQConstants.MQCA_Q_NAME, "*"), 
+				new MQCFST(MQConstants.MQCA_Q_NAME, "*"),
 				new MQCFIN(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_ALL)
 		};
 
@@ -189,7 +203,7 @@ public class MQAgent extends Agent {
 		agent.disconnect();
 		return queueList;
 	}
-	
+
 	protected void reportQueueStatsLite(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
 		try {
 			String qMgrName = mqQueueManager.getName().trim();
@@ -215,21 +229,21 @@ public class MQAgent extends Agent {
 			PCFMessage[] responses = agent.send(inquireQueueStatus);
 
 			logger.debug("{} queues returned by this query", responses.length);
-			System.out.println("CLASS " + responses[0].getClass());
+//			System.out.println("CLASS " + responses[0].getClass());
 
 			int skipCount = 0;
 			int reportingCount = 0;
 			for (int j = 0; j < responses.length; j++) {
 				PCFMessage response = responses[j];
 				String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
-				
+
 				int currentDepth = response.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
 				int openInputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
 				int openOutputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 				int oldestMsgAge = response.getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
 				int uncommittedMsgs = response.getIntParameterValue(MQConstants.MQIACF_UNCOMMITTED_MSGS);
 				int[] queueTimeIndicator = response.getIntListParameterValue(MQConstants.MQIACF_Q_TIME_INDICATOR);
-				
+
 				String lastGetDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
 				String lastGetTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
 				String lastPutDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
@@ -267,7 +281,7 @@ public class MQAgent extends Agent {
 						metricset.add(new AttributeMetric("lastPut", lastPutDate + " " + lastPutTime));
 						metricReporter.report(this.getEventType(), metricset);
 						logger.debug("[queue_name: {}, queue_depth: {}", queueName, currentDepth);
-					} 
+					}
 				} else {
 					skipCount++;
 				}
@@ -288,7 +302,7 @@ public class MQAgent extends Agent {
 
 			List<String> qList = listQueues(mqQueueManager);
 			logger.debug("{} queues returned by this query", qList.size() );
-			
+
 			int skipCount = 0;
 			int reportingCount = 0;
 			for (String qName : qList) {
@@ -314,7 +328,8 @@ public class MQAgent extends Agent {
 							Integer maxDepth = queue.getMaximumDepth();
 							Integer openInputCount = queue.getOpenInputCount();
 							Integer openOutputCount = queue.getOpenOutputCount();
-							
+
+
 							Float percent = 0.0F;
 							if(maxDepth > 0) {
 								percent = 100.0F * currentDepth/maxDepth;
@@ -359,14 +374,14 @@ public class MQAgent extends Agent {
 
 	protected void reportChannelStats(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
 		PCFMessageAgent agent = new PCFMessageAgent();
-		int[] attrs = { 
-				MQConstants.MQCACH_CHANNEL_NAME, 
-				MQConstants.MQCACH_CONNECTION_NAME, 
-				MQConstants.MQIACH_CHANNEL_STATUS, 
-				MQConstants.MQIACH_MSGS, 
-				MQConstants.MQIACH_BYTES_SENT, 
+		int[] attrs = {
+				MQConstants.MQCACH_CHANNEL_NAME,
+				MQConstants.MQCACH_CONNECTION_NAME,
+				MQConstants.MQIACH_CHANNEL_STATUS,
+				MQConstants.MQIACH_MSGS,
+				MQConstants.MQIACH_BYTES_SENT,
 				MQConstants.MQIACH_BYTES_RECEIVED,
-				MQConstants.MQIACH_BUFFERS_SENT, 
+				MQConstants.MQIACH_BUFFERS_SENT,
 				MQConstants.MQIACH_BUFFERS_RECEIVED };
 		try {
 			String qMgrName = mqQueueManager.getName().trim();
@@ -380,7 +395,7 @@ public class MQAgent extends Agent {
 			PCFMessage[] response = agent.send(request);
 			for(int i=0;i<response.length;i++) {
 				String channelName = response[i].getStringParameterValue(MQConstants.MQCACH_CHANNEL_NAME).trim();
-	
+
 				logger.debug("Reporting metrics on channel: " + channelName);
 				PCFMessage msg = response[i];
 				int channelStatus = msg.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
@@ -394,104 +409,53 @@ public class MQAgent extends Agent {
 				int buffersSent = msg.getIntParameterValue(MQConstants.MQIACH_BUFFERS_SENT);
 
 				int buffersRec = msg.getIntParameterValue(MQConstants.MQIACH_BUFFERS_RECEIVED);
-				
+
 				String connectionName = msg.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME);
-				
+
+
+				if (StringUtils.isNotBlank(connectionName)){
+					connectionName= connectionName.trim();
+				}
+
+
 				int chType = 0;
 				Object channelTypeObj = msg.getParameterValue(CMQCFC.MQIACH_CHANNEL_TYPE);
-                if (channelTypeObj != null && channelTypeObj instanceof Integer) {
-                     chType = ((Integer) channelTypeObj).intValue();
-                }
-                
-                String channelType = "" + chType;
-                switch (chType) {
-                		case CMQXC.MQCHT_SENDER:
-                			channelType = "SENDER";
-                			break;
-                		case CMQXC.MQCHT_SERVER:
-                    		channelType = "SERVER";
-                    		break;
-                		case CMQXC.MQCHT_RECEIVER:
-                    		channelType = "RECEIVER";
-                    		break;
-                		case CMQXC.MQCHT_REQUESTER:
-                    		channelType = "REQUESTER";
-                    		break;
-                		case CMQXC.MQCHT_CLNTCONN:
-                    		channelType = "CLNTCONN";
-                    		break;
-                		case CMQXC.MQCHT_SVRCONN:
-                    		channelType = "SVRCONN";
-                    		break;
-                		case CMQXC.MQCHT_ALL:
-                    		channelType = "ALL";
-                    		break;
-					default:
-						break;
-                }
-
-				String channelStatusString = "UNKNOWN";
-				switch (channelStatus) {
-					case CMQCFC.MQCHS_BINDING: 
-						channelStatusString = "BINDING";
-						break;
-					case CMQCFC.MQCHS_STARTING: 
-						channelStatusString = "STARTING:";
-						break;
-					case CMQCFC.MQCHS_RUNNING: 
-						channelStatusString = "RUNNING";
-						break;
-					case CMQCFC.MQCHS_PAUSED: 
-						channelStatusString = "PAUSED";
-						break;
-					case CMQCFC.MQCHS_STOPPING: 
-						channelStatusString = "STOPPING";
-						break;
-					case CMQCFC.MQCHS_RETRYING: 
-						channelStatusString = "RETRYING";
-						break;
-					case CMQCFC.MQCHS_STOPPED: 
-						channelStatusString = "STOPPED";
-						break;
-					case CMQCFC.MQCHS_REQUESTING: 
-						channelStatusString = "REQUESTING";
-						break;
-					case CMQCFC.MQCHS_DISCONNECTED: 
-						channelStatusString = "DISCONNECTED";
-						break;
-					case CMQCFC.MQCHS_INACTIVE: 
-						channelStatusString = "INACTIVE";
-						break;
-					case CMQCFC.MQCHS_INITIALIZING: 
-						channelStatusString = "INITIALIZING";
-						break;
-					default:
-						break;
+				if (channelTypeObj != null && channelTypeObj instanceof Integer) {
+					chType = ((Integer) channelTypeObj).intValue();
 				}
-				
+
+
 				List<Metric> metricset = new LinkedList<Metric>();
 				metricset.add(new AttributeMetric("provider", "ibmMQ"));
 				metricset.add(new AttributeMetric("entity", "channel"));
+
 				metricset.add(new AttributeMetric("qManagerName", serverQueueManagerName));
 				metricset.add(new AttributeMetric("qManagerHost", this.getServerHost()));
 				metricset.add(new AttributeMetric("channelName", channelName));
-				metricset.add(new AttributeMetric("channelType", channelType));
-				metricset.add(new AttributeMetric("channelStatus", channelStatusString));
+
+				String channelTypeStr = channelTypeMap.get(chType);
+				metricset.add(new AttributeMetric("channelType", StringUtils.isBlank(channelTypeStr)?"":channelTypeStr));
+
+				String channelStatusStr = channelStatusMap.get(channelStatus);
+				metricset.add(new AttributeMetric("channelStatus", StringUtils.isBlank(channelStatusStr)?"UNKNOWN":channelStatusStr));
+
 				metricset.add(new AttributeMetric("connectionName", connectionName));
 				metricset.add(new GaugeMetric("messageCount", messages));
 				metricset.add(new RateMetric("messageRate", messages));
+
 				metricset.add(new GaugeMetric("bytesSentCount", bytesSent));
 				metricset.add(new RateMetric("bytesSentRate", bytesSent));
 				metricset.add(new GaugeMetric("bytesRecCount", bytesRec));
 				metricset.add(new RateMetric("bytesRecRate", bytesRec));
+
 				metricset.add(new GaugeMetric("buffersSentCount", buffersSent));
 				metricset.add(new RateMetric("buffersSentRate", buffersSent));
 				metricset.add(new GaugeMetric("bufferRecCount", buffersRec));
 				metricset.add(new RateMetric("bufferRecRate", buffersRec));
-				
+
 				logger.debug(
 						"[channel_name: {}, channel_status: {}, message_count: {}, bytes_sent: {}, bytes_rec: {}, buffers_sent: {}, buffers_rec: {}",
-						channelName, channelStatusString, messages, bytesSent, bytesRec, buffersSent, buffersRec);
+						channelName, channelStatusStr, messages, bytesSent, bytesRec, buffersSent, buffersRec);
 				metricReporter.report(this.getEventType(), metricset, channelName);
 			}
 			agent.disconnect();
@@ -505,10 +469,10 @@ public class MQAgent extends Agent {
 			logger.error("IOException", e);
 		}
 	}
-	
+
 	public void addToQueueIgnores(String queueIgnore) {
 		Pattern pattern = Pattern.compile(queueIgnore.trim(), Pattern.CASE_INSENSITIVE);
 		queueIgnores.add(pattern);
 	}
-	
+
 }
