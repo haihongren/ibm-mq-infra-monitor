@@ -34,12 +34,11 @@ Update start.sh as follows
 
 This monitor can be started in two modes as specified by the "-Dnewrelic.platform.service.mode" JVM parameter. 
 
-* If this parameter equals "RPC", then the service starts up in RPC mode and listens for requests from the Infra Agent executor shim (installed separated with the Infra Agent). The shim makes the RPC requests for metrics on a interval configured with the Infra Agent.
+* If this parameter equals "RPC", then the service starts up in RPC mode and listens for requests from the New Relic Infra Agent Integration Plugin. 
 
-* If this parameter equals "INSIGHTS", then this monitor creates an executor that will run every minute, querying MQ Server for metrics 
+* If this parameter equals "INSIGHTS", then this monitor creates its own executor that will request metrics every minute and post them directly to Insights 
 
 Update the 'ARGS' property in the start.sh script to change the service mode.
-
 
 ### Setup the monitor to run as service
 
@@ -77,23 +76,23 @@ The "agents" object contains an array of “agent” objects. Each “agent” o
 {
     "global": {
     	"account_id": "insert_your_RPM_account_ID_here",
-		"insights_mode": {
-			"insights_insert_key": "insert_your_insights_insert_key_here"
-		},
-		"infra_mode": {
-			"rpc_listener_port": 9001
-		},
-		"dashboards": {
-			"admin_api_key": "insert_your_admin_api_key_here",
-			"installer_url": "insert_your_installer_url_or_leave_blank",
-			"integration_guid": "insert_your_integration_guid_here",
-			"dashboard_install": "normal"			
-		},
+	"insights_mode": {
+		"insights_insert_key": "insert_your_insights_insert_key_here"
+	},
+	"infra_mode": {
+		"rpc_listener_port": 9001
+	},
+	"dashboards": {
+		"admin_api_key": "insert_your_admin_api_key_here",
+		"installer_url": "insert_your_installer_url_or_leave_blank",
+		"integration_guid": "insert_your_integration_guid_here",
+		"dashboard_install": "normal"			
+	},
         "queueIgnores": 
-               [    "SYSTEM\\..*", 
-                   "AMQ.\\d\\d.*", 
-                   "Amq\\.Mqexplorer\\..*"
-               ]
+         [    "SYSTEM\\..*", 
+              "AMQ.\\d\\d.*", 
+              "Amq\\.Mqexplorer\\..*"
+         ]
     },
     "agents": [
                {
@@ -113,30 +112,13 @@ The "agents" object contains an array of “agent” objects. Each “agent” o
 
 
 ## Integration with New Relic Insights (INSIGHTS mode only)
-1. Rename the newrelic.template.json to newrelic.json. Edit all parameters to your environment. 
 
-Mandatory properties
+Add the following additional properties
 
 ```
 	"insights_mode": {
 		"insights_insert_key": "enter-your-api-key"
-	}
-```
-
-## Integration with Infrastructure Agent (RPC mode only)
-
-1. Start the service by executing the start.sh script. Then test the service 
-    1. `./plugin_exec_linux_amd64/bin/mq-monitor -hostname {host} -port {port}`
-    2. where {host} and {port} refer to the MQ Monitor service host and port.
-2. Copy the bin folder (along with executable) and the definition file to /var/db/newrelic-infra/custom-integrations (Linux) or C:/Program Files/New Relic/newrelic-infra/custom-integrations (Windows)
-3. Copy the mq-monitor-config.yml file to /etc/newrelic-infra/integrations.d/ (Linux) or C:/Program Files/New Relic/newrelic-infra/integrations.d (Windows)
-4. Restart the infrastructure agent
-
-Refer to [NR Infrastructure Documention](https://docs.newrelic.com/docs/infrastructure/integrations-sdk/getting-started/integration-file-structure) for more information about integration file structure
-
-## Proxy settings
-
-```
+	},
 	"proxy": {
 			"proxy_host": "enter_proxy_host",
 			"proxy_port": 443,
@@ -144,6 +126,20 @@ Refer to [NR Infrastructure Documention](https://docs.newrelic.com/docs/infrastr
 			"proxy_password": "enter_proxy_password"
 	}
 ```
+
+## Integration with Infrastructure Agent (RPC mode only)
+
+1. Test the integration plugin 
+
+    1. `bin/mq-plugin -mq_monitoring_service_port {port}`
+    2. where {host} and {port} refer to the MQ Monitoring Service port.
+2. Install the integration plugin
+
+   1. Copy the bin folder (along with executable) and the definition file to /var/db/newrelic-infra/custom-integrations (Linux) or C:/Program Files/New Relic/newrelic-infra/custom-integrations (Windows)
+   2. Copy the mq-monitor-config.yml file to /etc/newrelic-infra/integrations.d/ (Linux) or C:/Program Files/New Relic/newrelic-infra/integrations.d (Windows)
+   3. Restart the infrastructure agent
+
+Refer to [NR Infrastructure Documention](https://docs.newrelic.com/docs/infrastructure/integrations-sdk/getting-started/integration-file-structure) for more information about integration file structure
 
 
 ## Logging

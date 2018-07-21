@@ -1,11 +1,21 @@
-To build
+#Build
 
-./gradlew clean build
-will build the Java Monitoring Service 
+## Build MQ Monitoring Service(Java)
 
-cd infra-plugin
-source envrc
-cd src/source.datanerd.us/FIT/mq-plugin
-make
+```bash
+   ./gradlew clean build
+```
 
-will build the infra plugin.
+Build artifacts will be in build/distribution.
+
+## Build New Relic Infrastructure Agent Integration Plugin 
+
+```bash
+   cd nr-infra-integration
+   source envrc
+   ./installTools.sh
+
+   cd src/github.com/newrelic-experts/mq-plugin
+   make
+```
+
