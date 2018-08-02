@@ -161,4 +161,121 @@ All metrics collected by this plugin are reported as events of type "IBMMQSample
 
 
 
+## Event Attibutes
+This integration collects and generates Channel and Queue performance metrics which are indicated by **entity** attribute.
+ 
+#### Entity  : Channel
 
+```
+{
+  "results": [
+    {
+      "stringKeys": [
+        "agentName",
+        "channelName",
+        "channelStatus",
+        "channelType",
+        "connectionName",
+        "entity",
+        "hostname",
+        "nr.customEventSource",
+        "provider",
+        "qManagerHost",
+        "qManagerName"
+      ],
+      "numericKeys": [
+        "bufferRecCount",
+        "bufferRecRate",
+        "buffersSentCount",
+        "buffersSentRate",
+        "bytesRecCount",
+        "bytesRecRate",
+        "bytesSentCount",
+        "messageCount",
+        "messageRate",
+        "timestamp"
+      ],
+      "booleanKeys": [],
+      "allKeys": [
+        "agentName",
+        "bufferRecCount",
+        "bufferRecRate",
+        "buffersSentCount",
+        "buffersSentRate",
+        "bytesRecCount",
+        "bytesRecRate",
+        "bytesSentCount",
+        "channelName",
+        "channelStatus",
+        "channelType",
+        "connectionName",
+        "entity",
+        "hostname",
+        "messageCount",
+        "messageRate",
+        "nr.customEventSource",
+        "provider",
+        "qManagerHost",
+        "qManagerName",
+        "timestamp"
+      ]
+    }
+  ]
+}
+```
+
+#### Entity  : Queue
+
+```
+
+{
+  "results": [
+    {
+      "stringKeys": [
+        "agentName",
+        "entity",
+        "hostname",
+        "nr.customEventSource",
+        "provider",
+        "qManagerHost",
+        "qManagerName",
+        "qName"
+      ],
+      "numericKeys": [
+        "highQDepth",
+        "msgDeqCount",
+        "msgEnqCount",
+        "openInputCount",
+        "openOutputCount",
+        "qDepth",
+        "qDepthMax",
+        "qDepthPercent",
+        "timeSinceReset",
+        "timestamp"
+      ],
+      "booleanKeys": [],
+      "allKeys": [
+        "agentName",
+        "entity",
+        "highQDepth",
+        "hostname",
+        "msgDeqCount",
+        "msgEnqCount",
+        "nr.customEventSource",
+        "openInputCount",
+        "openOutputCount",
+        "provider",
+        "qDepth",
+        "qDepthMax",
+        "qDepthPercent",
+        "qManagerHost",
+        "qManagerName",
+        "qName",
+        "timeSinceReset",
+        "timestamp"
+      ]
+    }
+  ]
+}
+
+```

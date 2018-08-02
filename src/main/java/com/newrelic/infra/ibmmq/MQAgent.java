@@ -161,11 +161,12 @@ public class MQAgent extends Agent {
 				metricMap.putAll(reportQueueStatsLite(agent));
 			}
             reportResetQueueStats(agent, metricMap);
+			for (Map.Entry<String,List<Metric>> entry : metricMap.entrySet()){
+				metricReporter.report(this.getEventType(), entry.getValue());
+			}
 
             reportChannelStats(agent, metricReporter);
-            for (Map.Entry<String,List<Metric>> entry : metricMap.entrySet()){
-                metricReporter.report(this.getEventType(), entry.getValue());
-            }
+
 
 		} catch (MQException e) {
 			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
