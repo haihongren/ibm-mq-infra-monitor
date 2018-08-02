@@ -167,9 +167,6 @@ public class MQAgent extends Agent {
                 metricReporter.report(this.getEventType(), entry.getValue());
             }
 
-
-
-            mqQueueManager.disconnect();
 		} catch (MQException e) {
 			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
 			throw e;
@@ -395,8 +392,11 @@ public class MQAgent extends Agent {
         return metricMap;
     }
 
-	protected void reportQueueStats(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
+	protected Map<String,List<Metric>> reportQueueStats(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
+        Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
+
 		try {
+
 			String qMgrName = mqQueueManager.getName().trim();
 			logger.debug("Getting queue metrics for queueManager: " + qMgrName);
 
@@ -445,8 +445,10 @@ public class MQAgent extends Agent {
 							metricset.add(new GaugeMetric("qDepthMax", maxDepth));
 							metricset.add(new GaugeMetric("openInputCount", openInputCount));
 							metricset.add(new GaugeMetric("openOutputCount", openOutputCount));
-							metricReporter.report(this.getEventType(), metricset);
-							logger.debug("[queue_name: {}, queue_depth: {}, queue_depth_percent: {}", queueName, currentDepth, percent);
+
+                            metricMap.put(queueName, metricset);
+
+                            logger.debug("[queue_name: {}, queue_depth: {}, queue_depth_percent: {}", queueName, currentDepth, percent);
 						} else {
 							skipCount++;
 						}
@@ -469,6 +471,7 @@ public class MQAgent extends Agent {
 		} catch (Throwable e) {
 			logger.error("Exception occurred", e);
 		}
+        return metricMap;
 
 	}
 
