@@ -156,9 +156,9 @@ public class MQAgent extends Agent {
             agent = new PCFMessageAgent(mqQueueManager);
 
 			if (accessQueueMode) {
-				reportQueueStats(mqQueueManager, metricReporter);
+                metricMap.putAll(reportQueueStats(mqQueueManager));
 			} else {
-				metricMap.putAll(reportQueueStatsLite(agent, metricReporter));
+				metricMap.putAll(reportQueueStatsLite(agent));
 			}
             reportResetQueueStats(agent, metricMap);
 
@@ -228,7 +228,7 @@ public class MQAgent extends Agent {
 		return queueList;
 	}
 
-	protected Map<String,List<Metric>> reportQueueStatsLite(PCFMessageAgent agent, MetricReporter metricReporter) {
+	protected Map<String,List<Metric>> reportQueueStatsLite(PCFMessageAgent agent) {
 	    Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
 
 		try {
@@ -392,7 +392,7 @@ public class MQAgent extends Agent {
         return metricMap;
     }
 
-	protected Map<String,List<Metric>> reportQueueStats(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
+	protected Map<String,List<Metric>> reportQueueStats(MQQueueManager mqQueueManager) {
         Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
 
 		try {
