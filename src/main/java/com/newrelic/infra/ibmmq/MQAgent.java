@@ -147,19 +147,46 @@ public class MQAgent extends Agent {
 
 	@Override
 	public void populateMetrics(MetricReporter metricReporter) throws Exception {
-		try {
-			MQQueueManager mqQueueManager = connect();
+        Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
+        MQQueueManager mqQueueManager = null;
+        PCFMessageAgent agent =null;
+
+        try {
+			mqQueueManager = connect();
+            agent = new PCFMessageAgent(mqQueueManager);
+
 			if (accessQueueMode) {
 				reportQueueStats(mqQueueManager, metricReporter);
 			} else {
-				reportQueueStatsLite(mqQueueManager, metricReporter);
+				metricMap.putAll(reportQueueStatsLite(agent, metricReporter));
 			}
-			reportChannelStats(mqQueueManager, metricReporter);
-			mqQueueManager.disconnect();
+            reportResetQueueStats(agent, metricMap);
+
+            reportChannelStats(agent, metricReporter);
+            for (Map.Entry<String,List<Metric>> entry : metricMap.entrySet()){
+                metricReporter.report(this.getEventType(), entry.getValue());
+            }
+
+
+
+            mqQueueManager.disconnect();
 		} catch (MQException e) {
 			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
 			throw e;
-		}
+		}finally{
+            try{
+                if (agent !=null){
+                    agent.disconnect();
+                }
+                if (mqQueueManager !=null) {
+                    mqQueueManager.disconnect();
+                }
+            }catch(MQException ex){
+
+            }
+
+        }
+
 	}
 
 
@@ -204,12 +231,13 @@ public class MQAgent extends Agent {
 		return queueList;
 	}
 
-	protected void reportQueueStatsLite(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
-		try {
-			String qMgrName = mqQueueManager.getName().trim();
-			logger.debug("Getting queue metrics for queueManager: " + qMgrName);
+	protected Map<String,List<Metric>> reportQueueStatsLite(PCFMessageAgent agent, MetricReporter metricReporter) {
+	    Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
 
-			PCFMessageAgent agent = new PCFMessageAgent();
+		try {
+			logger.debug("Getting queue metrics for queueManager: " + agent.getQManagerName().trim());
+
+
 
 			// Prepare PCF command to inquire queue status (status type)
 			PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_STATUS);
@@ -224,7 +252,6 @@ public class MQAgent extends Agent {
 							MQConstants.MQIA_OPEN_OUTPUT_COUNT, MQConstants.MQIACF_UNCOMMITTED_MSGS,
 							MQConstants.MQIACF_Q_TIME_INDICATOR, MQConstants.MQIACF_Q_STATUS_TYPE});
 
-			agent.connect(mqQueueManager);
 
 			PCFMessage[] responses = agent.send(inquireQueueStatus);
 
@@ -279,7 +306,10 @@ public class MQAgent extends Agent {
 						}
 						metricset.add(new AttributeMetric("lastGet", lastGetDate + " " +lastGetTime));
 						metricset.add(new AttributeMetric("lastPut", lastPutDate + " " + lastPutTime));
-						metricReporter.report(this.getEventType(), metricset);
+
+
+						metricMap.put(queueName, metricset);
+
 						logger.debug("[queue_name: {}, queue_depth: {}", queueName, currentDepth);
 					}
 				} else {
@@ -288,12 +318,82 @@ public class MQAgent extends Agent {
 			}
 
 			logger.debug("{} queues skipped and {} queues reporting for this queue_manager", skipCount, reportingCount);
-			agent.disconnect();
+
 		} catch (Throwable t) {
 			logger.error("Exception occurred", t);
 		}
-
+        return metricMap;
 	}
+
+    protected Map<String,List<Metric>> reportResetQueueStats(PCFMessageAgent agent,  Map<String,List<Metric>> metricMap) {
+
+        try {
+
+            logger.debug("Getting RestQueueStats metrics for queueManager: " + agent.getQManagerName().trim());
+
+            PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_RESET_Q_STATS);
+            inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
+
+            PCFMessage[] responses = agent.send(inquireQueueStatus);
+
+            logger.debug("{} queues returned by this query", responses.length);
+
+            int skipCount = 0;
+            int reportingCount = 0;
+            for (int j = 0; j < responses.length; j++) {
+                PCFMessage response = responses[j];
+                String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
+                int highQDepth = response.getIntParameterValue(MQConstants.MQIA_HIGH_Q_DEPTH);
+                int msgDeqCount = response.getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
+                int msgEnqCount = response.getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
+
+                int timeSinceReset = response.getIntParameterValue(MQConstants.MQIA_TIME_SINCE_RESET);
+
+                boolean skip = false;
+                for (int i = 0; i < queueIgnores.size(); i++) {
+                    Pattern ignorePattern = queueIgnores.get(i);
+                    if (ignorePattern.matcher(qName).matches()) {
+                        skip = true;
+                        logger.trace("Skipping metrics for queue: {}", qName);
+                        break;
+                    }
+                }
+
+                if (!skip) {
+                    reportingCount++;
+                    if (qName != null) {
+                        String queueName = qName.trim();
+                        List<Metric> metricset= metricMap.get(queueName);
+                        if (metricset== null){
+                            metricset=  new LinkedList<Metric>();
+                            metricset.add(new AttributeMetric("provider", "IBM"));
+                            metricset.add(new AttributeMetric("entity", "queue"));
+                            metricset.add(new AttributeMetric("qManagerName", serverQueueManagerName));
+                            metricset.add(new AttributeMetric("qManagerHost", this.getServerHost()));
+                            metricset.add(new AttributeMetric("qName", queueName));
+
+                        }
+
+                        metricset.add(new GaugeMetric("highQDepth", highQDepth));
+                        metricset.add(new GaugeMetric("msgDeqCount", msgDeqCount));
+                        metricset.add(new GaugeMetric("msgEnqCount", msgEnqCount));
+
+                        metricset.add(new GaugeMetric("timeSinceReset", timeSinceReset));
+                        metricMap.put(queueName, metricset);
+
+                    }
+                } else {
+                    skipCount++;
+                }
+            }
+
+            logger.debug("{} queues skipped and {} queues reporting for this queue_manager", skipCount, reportingCount);
+        } catch (Throwable t) {
+            logger.error("Exception occurred", t);
+        }
+
+        return metricMap;
+    }
 
 	protected void reportQueueStats(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
 		try {
@@ -372,8 +472,7 @@ public class MQAgent extends Agent {
 
 	}
 
-	protected void reportChannelStats(MQQueueManager mqQueueManager, MetricReporter metricReporter) {
-		PCFMessageAgent agent = new PCFMessageAgent();
+	protected void reportChannelStats(PCFMessageAgent agent, MetricReporter metricReporter) {
 		int[] attrs = {
 				MQConstants.MQCACH_CHANNEL_NAME,
 				MQConstants.MQCACH_CONNECTION_NAME,
@@ -384,10 +483,8 @@ public class MQAgent extends Agent {
 				MQConstants.MQIACH_BUFFERS_SENT,
 				MQConstants.MQIACH_BUFFERS_RECEIVED };
 		try {
-			String qMgrName = mqQueueManager.getName().trim();
-			logger.debug("Getting channel metrics for queueManager: ", qMgrName);
+			logger.debug("Getting channel metrics for queueManager: ", agent.getQManagerName().trim());
 
-			agent.connect(mqQueueManager);
 			PCFMessage request = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL_STATUS);
 			request.addParameter(MQConstants.MQCACH_CHANNEL_NAME,"*");
 			//request.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_TYPE, MQConstants.MQOT_CURRENT_CHANNEL);
@@ -458,7 +555,7 @@ public class MQAgent extends Agent {
 						channelName, channelStatusStr, messages, bytesSent, bytesRec, buffersSent, buffersRec);
 				metricReporter.report(this.getEventType(), metricset, channelName);
 			}
-			agent.disconnect();
+
 		} catch (PCFException e) {
 			logger.error("PCFException", e);
 		} catch (MQException e) {
