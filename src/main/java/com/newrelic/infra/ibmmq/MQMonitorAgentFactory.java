@@ -23,7 +23,7 @@ public class MQMonitorAgentFactory extends AgentFactory {
 			if (queueIgnoresObject instanceof ArrayList) {
 				List<String> qIgnores = (ArrayList<String>) queueIgnoresObject;
 				for (int i = 0; i < qIgnores.size(); i++) {
-					String regEx = (String) qIgnores.get(i);
+					String regEx = qIgnores.get(i);
 					globalQueueIgnores.add(regEx);
 				}
 			}
@@ -43,6 +43,8 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		String queueManager = (String) agentProperties.get("queueManager");
 		String channel = (String) agentProperties.get("channel");
 		String eventType = (String) agentProperties.get("eventType");
+		boolean reportEventMessages = (Boolean) agentProperties.get("reportEventMessages");
+		int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION);
 
 		if (name == null || host == null || port == null || queueManager == null || channel == null) {
 			throw new Exception("'name', 'host', 'port', 'queueManager' and 'channel' are required agent properties.");
@@ -56,12 +58,13 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		agent.setServerChannelName(channel);
 		agent.setServerQueueManagerName(queueManager);
 		agent.setEventType(eventType);
+		agent.setReportEventMessages(reportEventMessages);
+		agent.setVersion(version);
 		
 		for (Iterator<String> iterator = globalQueueIgnores.iterator(); iterator.hasNext();) {
-			String queueIgnoreRegEx = (String) iterator.next();
+			String queueIgnoreRegEx = iterator.next();
 			agent.addToQueueIgnores(queueIgnoreRegEx);
 		}
 		return agent ;
 	}
-
 }

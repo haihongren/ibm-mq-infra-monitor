@@ -1,20 +1,17 @@
 package com.newrelic.infra.ibmmq;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
 
+import com.ibm.mq.*;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.mq.MQEnvironment;
-import com.ibm.mq.MQException;
-import com.ibm.mq.MQMessage;
-import com.ibm.mq.MQQueue;
-import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.CMQXC;
 import com.ibm.mq.constants.MQConstants;
@@ -35,10 +32,13 @@ import com.newrelic.infra.publish.api.metrics.Metric;
 import com.newrelic.infra.publish.api.metrics.RateMetric;
 
 public class MQAgent extends Agent {
+	public static final int LATEST_VERSION = 2;
+
 	private static final String QUEUE_ACCESS_PROPERTY = "newrelic.queue.access.allow";
 	private static final String DEFAULT_SERVER_HOST = "localhost";
 	private static final String DEFAULT_EVENT_TYPE = "IBMMQSample";
 	private static final int DEFAULT_SERVER_PORT = 1414;
+	private static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
 
 	private static final Logger logger = LoggerFactory.getLogger(MQAgent.class);
 
@@ -51,6 +51,8 @@ public class MQAgent extends Agent {
 	private String serverChannelName = "SYSTEM.DEF.SVRCONN";
 	private String serverQueueManagerName = null;
 	private String eventType = DEFAULT_EVENT_TYPE;
+	private boolean reportEventMessages = false;
+	private int version = LATEST_VERSION;
 
 	private List<Pattern> queueIgnores = new ArrayList<Pattern>();
 
@@ -126,8 +128,32 @@ public class MQAgent extends Agent {
 		this.eventType = StringUtils.isNotBlank(eventType) ? eventType : DEFAULT_EVENT_TYPE;
 
 	}
+
 	public String getEventType() {
-		return  this.eventType;
+		return getEventType(DEFAULT_EVENT_TYPE);
+	}
+
+	public String getEventType(String subType) {
+		if(version > 1)
+			return this.eventType + ":" + subType;
+		else
+			return this.eventType;
+	}
+
+	public boolean reportEventMessages() {
+		return reportEventMessages;
+	}
+
+	public void setReportEventMessages(boolean reportEventMessages) {
+		this.reportEventMessages = reportEventMessages;
+	}
+
+	public int getVersion() {
+		return version;
+	}
+
+	public void setVersion(int version) {
+		this.version = version;
 	}
 
 	public MQAgent() {
@@ -147,7 +173,7 @@ public class MQAgent extends Agent {
 
 	@Override
 	public void populateMetrics(MetricReporter metricReporter) throws Exception {
-        Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
+        Map<String,List<Metric>> metricMap = new HashMap<>();
         MQQueueManager mqQueueManager = null;
         PCFMessageAgent agent =null;
 
@@ -162,32 +188,30 @@ public class MQAgent extends Agent {
 			}
             reportResetQueueStats(agent, metricMap);
 			for (Map.Entry<String,List<Metric>> entry : metricMap.entrySet()){
-				metricReporter.report(this.getEventType(), entry.getValue());
+				metricReporter.report(this.getEventType("Queue"), entry.getValue());
 			}
 
             reportChannelStats(agent, metricReporter);
 
+			if(reportEventMessages) {
+				reportEventStats(mqQueueManager, metricReporter);
+			}
 
 		} catch (MQException e) {
 			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
 			throw e;
-		}finally{
-            try{
+		} finally {
+            try {
                 if (agent !=null){
                     agent.disconnect();
                 }
                 if (mqQueueManager !=null) {
                     mqQueueManager.disconnect();
                 }
-            }catch(MQException ex){
-
+            } catch(MQException ex){
             }
-
         }
-
 	}
-
-
 
 	@SuppressWarnings("unchecked")
 	private MQQueueManager connect() throws MQException {
@@ -557,7 +581,7 @@ public class MQAgent extends Agent {
 				logger.debug(
 						"[channel_name: {}, channel_status: {}, message_count: {}, bytes_sent: {}, bytes_rec: {}, buffers_sent: {}, buffers_rec: {}",
 						channelName, channelStatusStr, messages, bytesSent, bytesRec, buffersSent, buffersRec);
-				metricReporter.report(this.getEventType(), metricset, channelName);
+				metricReporter.report(this.getEventType("Channel"), metricset, channelName);
 			}
 
 		} catch (PCFException e) {
@@ -568,6 +592,99 @@ public class MQAgent extends Agent {
 			logger.error("IOException", e);
 		} catch (Throwable e) {
 			logger.error("IOException", e);
+		}
+	}
+
+	protected void reportEventStats(MQQueueManager mgr, MetricReporter metricReporter) {
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.QMGR.EVENT");
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.CHANNEL.EVENT");
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.PERFM.EVENT");
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.CONFIG.EVENT");
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.COMMAND.EVENT");
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.LOGGER.EVENT");
+		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.PUBSUB.EVENT");
+	}
+
+	protected void reportEventStatsForQueue(MQQueueManager mgr, MetricReporter metricReporter, String queueName) {
+
+		MQQueue queue = null;
+
+		try {
+			int openOptions = MQConstants.MQOO_INPUT_EXCLUSIVE + MQConstants.MQOO_BROWSE;
+
+			queue = mgr.accessQueue(queueName, openOptions, null, null, null);
+
+			MQGetMessageOptions getOptions = new MQGetMessageOptions();
+			getOptions.options = MQConstants.MQGMO_WAIT | MQConstants.MQGMO_BROWSE_FIRST;
+
+			MQMessage message = new MQMessage();
+
+			int[] detailsIgnore = new int[]{MQConstants.MQIACF_REASON_QUALIFIER, MQConstants.MQCA_Q_MGR_NAME};
+			Arrays.sort(detailsIgnore);
+
+			while (true) {
+				try {
+					message.clearMessage();
+					message.correlationId = MQConstants.MQCI_NONE;
+					message.messageId = MQConstants.MQMI_NONE;
+
+					queue.get(message, getOptions);
+					PCFMessage pcf = new PCFMessage(message);
+
+					List<Metric> metricset = new LinkedList<>();
+
+					metricset.add(new AttributeMetric("putTime", dateTimeFormat.format(message.putDateTime.getTime())));
+					metricset.add(new AttributeMetric("eventQueue", queueName));
+					metricset.add(new AttributeMetric("queueManager", pcf.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+					metricset.add(new AttributeMetric("reasonCode", MQConstants.lookupReasonCode(pcf.getReason())));
+					metricset.add(new AttributeMetric("reasonQualifier", tryGetPCFIntParam(pcf, MQConstants.MQIACF_REASON_QUALIFIER, "MQRQ_.*")));
+
+					StringBuilder b = new StringBuilder();
+					Enumeration<PCFParameter> params = pcf.getParameters();
+					while (params.hasMoreElements()) {
+						PCFParameter param = params.nextElement();
+						if (Arrays.binarySearch(detailsIgnore, param.getParameter()) < 0) {
+							b.append(param.getParameterName()).append('=').append(param.getStringValue().trim()).append(';');
+						}
+					}
+					String details = b.length() > 0 ? b.substring(0, b.length() - 1) : "";
+					metricset.add(new AttributeMetric("details", details));
+
+					metricReporter.report(this.getEventType("Event"), metricset);
+
+					getOptions.options = MQConstants.MQGMO_WAIT | MQConstants.MQGMO_BROWSE_NEXT;
+
+				} catch (MQException e) {
+					if (e.completionCode == 2 && e.reasonCode == MQConstants.MQRC_NO_MSG_AVAILABLE) {
+						// Normal completion with all messages processed.
+						break;
+					} else {
+						throw e;
+					}
+				}
+			}
+		} catch (Exception e) {
+			logger.error("Problem getting event stats from " + queueName + ".", e);
+		} finally {
+			if(queue != null) {
+				try {
+					queue.close();
+				} catch (MQException e) {
+					logger.error("Couldn't close queue " + queueName);
+				}
+			}
+		}
+	}
+
+	private String tryGetPCFIntParam(PCFMessage pcf, int paramId, String lookupFilter) throws PCFException {
+		try {
+			return MQConstants.lookup(pcf.getIntParameterValue(paramId), lookupFilter);
+		} catch (PCFException e) {
+			if(e.completionCode == 2 && e.reasonCode == 3014) {
+				return "";
+			} else {
+				throw e;
+			}
 		}
 	}
 
