@@ -134,7 +134,7 @@ public class MQAgent extends Agent {
 	}
 
 	public String getEventType(String subType) {
-		if(version > 1)
+		if(version > 1 || !(subType.equals("Channel") || subType.equals("Queue")))
 			return this.eventType + ":" + subType;
 		else
 			return this.eventType;
