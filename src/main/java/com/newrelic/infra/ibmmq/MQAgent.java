@@ -1,6 +1,7 @@
 package com.newrelic.infra.ibmmq;
 
 import java.io.IOException;
+import java.lang.invoke.ConstantCallSite;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -54,13 +55,17 @@ public class MQAgent extends Agent {
 	private boolean reportEventMessages = false;
 	private int version = LATEST_VERSION;
 
-	private List<Pattern> queueIgnores = new ArrayList<Pattern>();
+	private MQQueueManager mqQueueManager;
+	private PCFMessageAgent agent;
+	private MetricReporter metricReporter;
+
+	private List<Pattern> queueIgnores = new ArrayList<>();
 
 
 	private static final Map<Integer,String> channelTypeMap;
 	private static final Map<Integer,String> channelStatusMap;
 	static{
-		Map<Integer,String> sChannelStatus = new HashMap<Integer,String>();
+		Map<Integer,String> sChannelStatus = new HashMap<>();
 		sChannelStatus.put(CMQCFC.MQCHS_BINDING, "BINDING");
 		sChannelStatus.put(CMQCFC.MQCHS_STARTING, "STARTING");
 		sChannelStatus.put(CMQCFC.MQCHS_RUNNING, "RUNNING");
@@ -77,7 +82,7 @@ public class MQAgent extends Agent {
 
 		channelStatusMap = Collections.unmodifiableMap(sChannelStatus);
 
-		Map<Integer,String> mChannelType = new HashMap<Integer,String>();
+		Map<Integer,String> mChannelType = new HashMap<>();
 		mChannelType.put(CMQXC.MQCHT_SENDER, "SENDER");
 		mChannelType.put(CMQXC.MQCHT_SERVER, "SERVER");
 		mChannelType.put(CMQXC.MQCHT_RECEIVER, "RECEIVER");
@@ -135,7 +140,7 @@ public class MQAgent extends Agent {
 
 	public String getEventType(String subType) {
 		if(version > 1 || !(subType.equals("Channel") || subType.equals("Queue")))
-			return this.eventType + ":" + subType;
+			return this.eventType + subType;
 		else
 			return this.eventType;
 	}
@@ -173,28 +178,29 @@ public class MQAgent extends Agent {
 
 	@Override
 	public void populateMetrics(MetricReporter metricReporter) throws Exception {
+		this.metricReporter = metricReporter;
+
         Map<String,List<Metric>> metricMap = new HashMap<>();
-        MQQueueManager mqQueueManager = null;
-        PCFMessageAgent agent =null;
 
         try {
 			mqQueueManager = connect();
             agent = new PCFMessageAgent(mqQueueManager);
 
 			if (accessQueueMode) {
-                metricMap.putAll(reportQueueStats(mqQueueManager));
+                metricMap.putAll(reportQueueStats());
 			} else {
-				metricMap.putAll(reportQueueStatsLite(agent));
+				metricMap.putAll(reportQueueStatsLite());
 			}
-            reportResetQueueStats(agent, metricMap);
+            reportResetQueueStats(metricMap);
 			for (Map.Entry<String,List<Metric>> entry : metricMap.entrySet()){
 				metricReporter.report(this.getEventType("Queue"), entry.getValue());
 			}
 
-            reportChannelStats(agent, metricReporter);
+            reportChannelStats();
 
 			if(reportEventMessages) {
-				reportEventStats(mqQueueManager, metricReporter);
+				reportEventStats();
+				reportSysObjectStatusStats();
 			}
 
 		} catch (MQException e) {
@@ -253,8 +259,8 @@ public class MQAgent extends Agent {
 		return queueList;
 	}
 
-	protected Map<String,List<Metric>> reportQueueStatsLite(PCFMessageAgent agent) {
-	    Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
+	protected Map<String,List<Metric>> reportQueueStatsLite() {
+	    Map<String,List<Metric>> metricMap = new HashMap<>();
 
 		try {
 			logger.debug("Getting queue metrics for queueManager: " + agent.getQManagerName().trim());
@@ -347,7 +353,7 @@ public class MQAgent extends Agent {
         return metricMap;
 	}
 
-    protected Map<String,List<Metric>> reportResetQueueStats(PCFMessageAgent agent,  Map<String,List<Metric>> metricMap) {
+    protected Map<String,List<Metric>> reportResetQueueStats(Map<String,List<Metric>> metricMap) {
 
         try {
 
@@ -417,8 +423,8 @@ public class MQAgent extends Agent {
         return metricMap;
     }
 
-	protected Map<String,List<Metric>> reportQueueStats(MQQueueManager mqQueueManager) {
-        Map<String,List<Metric>> metricMap = new HashMap<String, List<Metric>>();
+	protected Map<String,List<Metric>> reportQueueStats() {
+        Map<String,List<Metric>> metricMap = new HashMap<>();
 
 		try {
 
@@ -500,7 +506,7 @@ public class MQAgent extends Agent {
 
 	}
 
-	protected void reportChannelStats(PCFMessageAgent agent, MetricReporter metricReporter) {
+	protected void reportChannelStats() {
 		int[] attrs = {
 				MQConstants.MQCACH_CHANNEL_NAME,
 				MQConstants.MQCACH_CONNECTION_NAME,
@@ -509,7 +515,8 @@ public class MQAgent extends Agent {
 				MQConstants.MQIACH_BYTES_SENT,
 				MQConstants.MQIACH_BYTES_RECEIVED,
 				MQConstants.MQIACH_BUFFERS_SENT,
-				MQConstants.MQIACH_BUFFERS_RECEIVED };
+				MQConstants.MQIACH_BUFFERS_RECEIVED,
+				MQConstants.MQIACH_INDOUBT_STATUS };
 		try {
 			logger.debug("Getting channel metrics for queueManager: ", agent.getQManagerName().trim());
 
@@ -524,6 +531,7 @@ public class MQAgent extends Agent {
 				logger.debug("Reporting metrics on channel: " + channelName);
 				PCFMessage msg = response[i];
 				int channelStatus = msg.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
+				int channelInDoubtStatus = msg.getIntParameterValue(MQConstants.MQIACH_INDOUBT_STATUS);
 
 				int messages = msg.getIntParameterValue(MQConstants.MQIACH_MSGS);
 
@@ -561,7 +569,7 @@ public class MQAgent extends Agent {
 				String channelTypeStr = channelTypeMap.get(chType);
 				metricset.add(new AttributeMetric("channelType", StringUtils.isBlank(channelTypeStr)?"":channelTypeStr));
 
-				String channelStatusStr = channelStatusMap.get(channelStatus);
+				String channelStatusStr = channelInDoubtStatus == MQConstants.MQIACH_INDOUBT_STATUS ? "INDOUBT" : channelStatusMap.get(channelStatus);
 				metricset.add(new AttributeMetric("channelStatus", StringUtils.isBlank(channelStatusStr)?"UNKNOWN":channelStatusStr));
 
 				metricset.add(new AttributeMetric("connectionName", connectionName));
@@ -595,14 +603,14 @@ public class MQAgent extends Agent {
 		}
 	}
 
-	protected void reportEventStats(MQQueueManager mgr, MetricReporter metricReporter) {
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.QMGR.EVENT");
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.CHANNEL.EVENT");
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.PERFM.EVENT");
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.CONFIG.EVENT");
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.COMMAND.EVENT");
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.LOGGER.EVENT");
-		reportEventStatsForQueue(mgr, metricReporter, "SYSTEM.ADMIN.PUBSUB.EVENT");
+	protected void reportEventStats() {
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.QMGR.EVENT");
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.CHANNEL.EVENT");
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.PERFM.EVENT");
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.CONFIG.EVENT");
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.COMMAND.EVENT");
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.LOGGER.EVENT");
+		reportEventStatsForQueue(mqQueueManager, metricReporter, "SYSTEM.ADMIN.PUBSUB.EVENT");
 	}
 
 	protected void reportEventStatsForQueue(MQQueueManager mgr, MetricReporter metricReporter, String queueName) {
@@ -686,6 +694,62 @@ public class MQAgent extends Agent {
 				throw e;
 			}
 		}
+	}
+
+	protected void reportSysObjectStatusStats() {
+		reportChannelInitiatorStatus();
+		reportClusterManagerSuspended();
+	}
+
+	private void reportChannelInitiatorStatus() {
+		try {
+			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_MGR_STATUS);
+			req.addParameter(MQConstants.MQIACF_Q_MGR_STATUS_ATTRS, new int[]{
+					MQConstants.MQIACF_CHINIT_STATUS
+			});
+
+			agent.connect(mqQueueManager);
+
+			PCFMessage[] responses = agent.send(req);
+			for (PCFMessage res : responses) {
+				List<Metric> metricset = new LinkedList<>();
+				metricset.add(new AttributeMetric("object", "ChannelInitiator"));
+				metricset.add(new AttributeMetric("status", res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS)));
+				metricset.add(new AttributeMetric("queueManager", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+				sendSysObjectStatusMetrics(metricset);
+			}
+		} catch (Exception e) {
+			logger.error("Problem getting system object status stats for channel initiator.", e);
+		}
+	}
+
+	private void reportClusterManagerSuspended() {
+		try {
+			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_CLUSTER_Q_MGR);
+			req.addParameter(MQConstants.MQIACF_Q_MGR_STATUS_ATTRS, new int[]{
+					MQConstants.MQIACF_SUSPEND
+			});
+
+			agent.connect(mqQueueManager);
+
+			PCFMessage[] responses = agent.send(req);
+			for (PCFMessage res : responses) {
+				List<Metric> metricset = new LinkedList<>();
+				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
+
+				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
+				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
+				metricset.add(new AttributeMetric("queueManager", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+
+				sendSysObjectStatusMetrics(metricset);
+			}
+		} catch (Exception e) {
+			logger.error("Problem getting system object status stats for channel initiator.", e);
+		}
+	}
+
+	private void sendSysObjectStatusMetrics(List<Metric> metricset) {
+		metricReporter.report(this.getEventType("SysObjectStatus"), metricset);
 	}
 
 	public void addToQueueIgnores(String queueIgnore) {
