@@ -13,20 +13,19 @@ public class MQMonitorAgentFactory extends AgentFactory {
 
 	private static final int DEFAULT_PORT = 1414;
 	
-	private List<String> globalQueueIgnores = new LinkedList<String>();
+	private ArrayList<String> globalQueueIgnores = new ArrayList<>();
+	private ArrayList<String> globalQueueIncludes = new ArrayList<>();
 	
 	@Override
 	public void init(Map<String, Object> globalConfig) {
 		super.init(globalConfig);
-		Object queueIgnoresObject = globalConfig.get("queueIgnores");
-		if (queueIgnoresObject != null) {
-			if (queueIgnoresObject instanceof ArrayList) {
-				List<String> qIgnores = (ArrayList<String>) queueIgnoresObject;
-				for (int i = 0; i < qIgnores.size(); i++) {
-					String regEx = qIgnores.get(i);
-					globalQueueIgnores.add(regEx);
-				}
-			}
+		loadListFromConfig(globalConfig.get("queueIgnores"), globalQueueIgnores);
+		loadListFromConfig(globalConfig.get("queueIncludes"), globalQueueIncludes);
+	}
+
+	private void loadListFromConfig(Object configList, List<String> destList) {
+		if (configList != null && configList instanceof ArrayList) {
+			destList.addAll((ArrayList<String>) configList);
 		}
 	}
 	
@@ -43,8 +42,11 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		String queueManager = (String) agentProperties.get("queueManager");
 		String channel = (String) agentProperties.get("channel");
 		String eventType = (String) agentProperties.get("eventType");
-		boolean reportEventMessages = (Boolean) agentProperties.get("reportEventMessages");
 		int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION);
+		boolean reportEventMessages = (Boolean) agentProperties.get("reportEventMessages");
+		boolean reportMaintenanceErrors = (Boolean) agentProperties.get("reportMaintenanceErrors");
+		String dailyMaintenanceErrorScanTime = (String) agentProperties.get("dailyMaintenanceErrorScanTime");
+		String mqToolsLogPath = (String) agentProperties.get("mqToolsLogPath");
 
 		if (name == null || host == null || port == null || queueManager == null || channel == null) {
 			throw new Exception("'name', 'host', 'port', 'queueManager' and 'channel' are required agent properties.");
@@ -60,11 +62,13 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		agent.setEventType(eventType);
 		agent.setReportEventMessages(reportEventMessages);
 		agent.setVersion(version);
-		
-		for (Iterator<String> iterator = globalQueueIgnores.iterator(); iterator.hasNext();) {
-			String queueIgnoreRegEx = iterator.next();
-			agent.addToQueueIgnores(queueIgnoreRegEx);
-		}
+		agent.setReportMaintenanceErrors(reportMaintenanceErrors);
+		agent.setDailyMaintenanceErrorScanTime(dailyMaintenanceErrorScanTime);
+		agent.setMqToolsLogPath(mqToolsLogPath);
+
+		agent.addToQueueIgnores(globalQueueIgnores);
+		agent.addToQueueIncludes(globalQueueIncludes);
+
 		return agent ;
 	}
 }

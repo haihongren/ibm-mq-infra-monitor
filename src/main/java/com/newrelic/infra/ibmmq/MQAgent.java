@@ -1,7 +1,6 @@
 package com.newrelic.infra.ibmmq;
 
-import java.io.IOException;
-import java.lang.invoke.ConstantCallSite;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -40,6 +39,7 @@ public class MQAgent extends Agent {
 	private static final String DEFAULT_EVENT_TYPE = "IBMMQSample";
 	private static final int DEFAULT_SERVER_PORT = 1414;
 	private static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
+	private static final SimpleDateFormat fileNameDateFormat = new SimpleDateFormat("YYYYMMdd");
 
 	private static final Logger logger = LoggerFactory.getLogger(MQAgent.class);
 
@@ -53,6 +53,9 @@ public class MQAgent extends Agent {
 	private String serverQueueManagerName = null;
 	private String eventType = DEFAULT_EVENT_TYPE;
 	private boolean reportEventMessages = false;
+	private boolean reportMaintenanceErrors = false;
+	private long nextCompressionErrorScanTime;
+	private String mqToolsLogPath;
 	private int version = LATEST_VERSION;
 
 	private MQQueueManager mqQueueManager;
@@ -60,6 +63,7 @@ public class MQAgent extends Agent {
 	private MetricReporter metricReporter;
 
 	private List<Pattern> queueIgnores = new ArrayList<>();
+	private List<Pattern> queueIncludes = new ArrayList<>();
 
 
 	private static final Map<Integer,String> channelTypeMap;
@@ -69,7 +73,7 @@ public class MQAgent extends Agent {
 		sChannelStatus.put(CMQCFC.MQCHS_BINDING, "BINDING");
 		sChannelStatus.put(CMQCFC.MQCHS_STARTING, "STARTING");
 		sChannelStatus.put(CMQCFC.MQCHS_RUNNING, "RUNNING");
-		sChannelStatus.put( CMQCFC.MQCHS_PAUSED, "PAUSED");
+		sChannelStatus.put(CMQCFC.MQCHS_PAUSED, "PAUSED");
 		sChannelStatus.put(CMQCFC.MQCHS_STOPPING, "STOPPING");
 		sChannelStatus.put(CMQCFC.MQCHS_RETRYING, "RETRYING");
 		sChannelStatus.put(CMQCFC.MQCHS_STOPPED, "STOPPED");
@@ -145,27 +149,37 @@ public class MQAgent extends Agent {
 			return this.eventType;
 	}
 
-	public boolean reportEventMessages() {
-		return reportEventMessages;
-	}
-
 	public void setReportEventMessages(boolean reportEventMessages) {
 		this.reportEventMessages = reportEventMessages;
 	}
 
-	public int getVersion() {
-		return version;
+	public void setReportMaintenanceErrors(boolean reportMaintenanceErrors) {
+		this.reportMaintenanceErrors = reportMaintenanceErrors;
 	}
 
 	public void setVersion(int version) {
 		this.version = version;
 	}
 
+	public void setDailyMaintenanceErrorScanTime(String time) {
+		int index = time.indexOf(':');
+		int hour = Integer.parseInt(time.substring(0, index));
+		int minute = Integer.parseInt(time.substring(index+1));
+
+		Calendar cal = GregorianCalendar.getInstance();
+		cal.set(Calendar.HOUR_OF_DAY, hour);
+		cal.set(Calendar.MINUTE, minute);
+		nextCompressionErrorScanTime = cal.getTimeInMillis();
+	}
+
+	public void setMqToolsLogPath(String mqToolsLogPath) {
+		this.mqToolsLogPath = mqToolsLogPath;
+	}
+
 	public MQAgent() {
 		super();
 		accessQueueMode =  BooleanUtils.toBoolean( System.getProperty(QUEUE_ACCESS_PROPERTY, "true"));
 		logger.debug("Using newrelic.queue.access.allow ={} accessQueueMode={}", System.getProperty(QUEUE_ACCESS_PROPERTY, "true") , accessQueueMode);
-
 	}
 
 	@Override
@@ -203,6 +217,10 @@ public class MQAgent extends Agent {
 				reportSysObjectStatusStats();
 			}
 
+			if(reportMaintenanceErrors) {
+				checkForCompressionError();
+			}
+
 		} catch (MQException e) {
 			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
 			throw e;
@@ -235,7 +253,7 @@ public class MQAgent extends Agent {
 
 	private List<String> listQueues(MQQueueManager mqQueueManager) throws MQException, IOException  {
 
-		List<String> queueList = new ArrayList<String>();
+		List<String> queueList = new ArrayList<>();
 
 		PCFMessageAgent agent = new PCFMessageAgent();
 		PCFParameter[] parameters = {
@@ -252,7 +270,7 @@ public class MQAgent extends Agent {
 		if(cfh.reason == 0) {
 			MQCFSL cfsl = new MQCFSL(responses[0]);
 			for(int i=0;i<cfsl.strings.length;i++) {
-				queueList.add(cfsl.strings[i]);
+				queueList.add(cfsl.strings[i].trim());
 			}
 		}
 		agent.disconnect();
@@ -304,17 +322,7 @@ public class MQAgent extends Agent {
 				String lastPutDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
 				String lastPutTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
 
-				boolean skip = false;
-				for (int i = 0; i < queueIgnores.size(); i++) {
-					Pattern ignorePattern = queueIgnores.get(i);
-					if (ignorePattern.matcher(qName).matches()) {
-						skip = true;
-						logger.trace("Skipping metrics for queue: {}", qName);
-						break;
-					}
-				}
-
-				if (!skip) {
+				if (!isQueueIgnored(qName)) {
 					reportingCount++;
 					if (qName != null) {
 						String queueName = qName.trim();
@@ -377,17 +385,7 @@ public class MQAgent extends Agent {
 
                 int timeSinceReset = response.getIntParameterValue(MQConstants.MQIA_TIME_SINCE_RESET);
 
-                boolean skip = false;
-                for (int i = 0; i < queueIgnores.size(); i++) {
-                    Pattern ignorePattern = queueIgnores.get(i);
-                    if (ignorePattern.matcher(qName).matches()) {
-                        skip = true;
-                        logger.trace("Skipping metrics for queue: {}", qName);
-                        break;
-                    }
-                }
-
-                if (!skip) {
+                if (!isQueueIgnored(qName)) {
                     reportingCount++;
                     if (qName != null) {
                         String queueName = qName.trim();
@@ -423,6 +421,23 @@ public class MQAgent extends Agent {
         return metricMap;
     }
 
+    private boolean isQueueIgnored(String qName) {
+		for(Pattern includePattern: queueIncludes) {
+			if (includePattern.matcher(qName).matches()) {
+				return false;
+			}
+		}
+
+		for (Pattern ignorePattern : queueIgnores) {
+			if (ignorePattern.matcher(qName).matches()) {
+				logger.trace("Skipping metrics for queue: {}", qName);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	protected Map<String,List<Metric>> reportQueueStats() {
         Map<String,List<Metric>> metricMap = new HashMap<>();
 
@@ -437,17 +452,7 @@ public class MQAgent extends Agent {
 			int skipCount = 0;
 			int reportingCount = 0;
 			for (String qName : qList) {
-				boolean skip = false;
-				for (int i = 0; i < queueIgnores.size(); i++) {
-					Pattern ignorePattern = queueIgnores.get(i);
-					if (ignorePattern.matcher(qName).matches()) {
-						skip = true;
-						logger.trace("Skipping metrics for queue: {}", qName);
-						break;
-					}
-				}
-
-				if (!skip) {
+				if (!isQueueIgnored(qName)) {
 					reportingCount++;
 					MQQueue queue = null;
 					try {
@@ -531,7 +536,16 @@ public class MQAgent extends Agent {
 				logger.debug("Reporting metrics on channel: " + channelName);
 				PCFMessage msg = response[i];
 				int channelStatus = msg.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
-				int channelInDoubtStatus = msg.getIntParameterValue(MQConstants.MQIACH_INDOUBT_STATUS);
+
+				int channelInDoubtStatus = -1;
+				try {
+					channelInDoubtStatus = msg.getIntParameterValue(MQConstants.MQIACH_INDOUBT_STATUS);
+				} catch (PCFException e) {
+					// In doubt status is not returned for server connection channels.  Log ex if it's some other reason.
+					if(e.reasonCode != 3014) {
+						throw e;
+					}
+				}
 
 				int messages = msg.getIntParameterValue(MQConstants.MQIACH_MSGS);
 
@@ -618,12 +632,12 @@ public class MQAgent extends Agent {
 		MQQueue queue = null;
 
 		try {
-			int openOptions = MQConstants.MQOO_INPUT_EXCLUSIVE + MQConstants.MQOO_BROWSE;
+			int openOptions = MQConstants.MQOO_INQUIRE + MQConstants.MQOO_FAIL_IF_QUIESCING + MQConstants.MQOO_INPUT_SHARED;
 
 			queue = mgr.accessQueue(queueName, openOptions, null, null, null);
 
 			MQGetMessageOptions getOptions = new MQGetMessageOptions();
-			getOptions.options = MQConstants.MQGMO_WAIT | MQConstants.MQGMO_BROWSE_FIRST;
+			getOptions.options = MQConstants.MQGMO_NO_WAIT + MQConstants.MQGMO_FAIL_IF_QUIESCING + MQConstants.MQGMO_CONVERT;
 
 			MQMessage message = new MQMessage();
 
@@ -632,10 +646,6 @@ public class MQAgent extends Agent {
 
 			while (true) {
 				try {
-					message.clearMessage();
-					message.correlationId = MQConstants.MQCI_NONE;
-					message.messageId = MQConstants.MQMI_NONE;
-
 					queue.get(message, getOptions);
 					PCFMessage pcf = new PCFMessage(message);
 
@@ -660,7 +670,7 @@ public class MQAgent extends Agent {
 
 					metricReporter.report(this.getEventType("Event"), metricset);
 
-					getOptions.options = MQConstants.MQGMO_WAIT | MQConstants.MQGMO_BROWSE_NEXT;
+					message.clearMessage();
 
 				} catch (MQException e) {
 					if (e.completionCode == 2 && e.reasonCode == MQConstants.MQRC_NO_MSG_AVAILABLE) {
@@ -698,7 +708,8 @@ public class MQAgent extends Agent {
 
 	protected void reportSysObjectStatusStats() {
 		reportChannelInitiatorStatus();
-		reportClusterManagerSuspended();
+//		reportClusterQueueManagerSuspended();
+//		reportChannelListenerStatus();
 	}
 
 	private void reportChannelInitiatorStatus() {
@@ -713,20 +724,22 @@ public class MQAgent extends Agent {
 			PCFMessage[] responses = agent.send(req);
 			for (PCFMessage res : responses) {
 				List<Metric> metricset = new LinkedList<>();
-				metricset.add(new AttributeMetric("object", "ChannelInitiator"));
-				metricset.add(new AttributeMetric("status", res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS)));
-				metricset.add(new AttributeMetric("queueManager", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+				metricset.add(new AttributeMetric("object", "QueueManagerChannelInitiator"));
+				metricset.add(new AttributeMetric("status", friendlyCodeLookup(
+						res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS), "MQSVC_.*")));
+				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
 				sendSysObjectStatusMetrics(metricset);
 			}
 		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for channel initiator.", e);
+			logger.error("Problem getting system object status stats for queue manager channel initiator.", e);
 		}
 	}
 
-	private void reportClusterManagerSuspended() {
+	private void reportClusterQueueManagerSuspended() {
 		try {
 			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_CLUSTER_Q_MGR);
-			req.addParameter(MQConstants.MQIACF_Q_MGR_STATUS_ATTRS, new int[]{
+			req.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, mqQueueManager.getName());
+			req.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, new int[]{
 					MQConstants.MQIACF_SUSPEND
 			});
 
@@ -739,12 +752,73 @@ public class MQAgent extends Agent {
 
 				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
 				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
-				metricset.add(new AttributeMetric("queueManager", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
 
 				sendSysObjectStatusMetrics(metricset);
 			}
 		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for channel initiator.", e);
+			logger.error("Problem getting system object status stats for cluster queue manager.", e);
+		}
+	}
+
+	private void reportChannelListenerStatus() {
+		try {
+			PCFMessage listenerReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER);
+			agent.connect(mqQueueManager);
+
+			PCFMessage[] listenerResponses = agent.send(listenerReq);
+			for (PCFMessage listenerRes : listenerResponses) {
+				PCFMessage statusReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER_STATUS);
+				statusReq.addParameter(MQConstants.MQCACH_LISTENER_NAME,
+						listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME));
+				agent.connect(mqQueueManager);
+
+				PCFMessage[] statusResponses = agent.send(statusReq);
+				for (PCFMessage statusRes : statusResponses) {
+					List<Metric> metricset = new LinkedList<>();
+					metricset.add(new AttributeMetric("object", "ChannelListener"));
+					metricset.add(new AttributeMetric("status", friendlyCodeLookup(
+							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
+					metricset.add(new AttributeMetric("name",
+							statusRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME)));
+
+					sendSysObjectStatusMetrics(metricset);
+				}
+			}
+		} catch (Exception e) {
+			logger.error("Problem getting system object status stats for channel listener.", e);
+		}
+	}
+
+	private void checkForCompressionError() {
+		long now = System.currentTimeMillis();
+		if(now >= nextCompressionErrorScanTime) {
+			String fileDate = fileNameDateFormat.format(new Date(now));
+			File logDir = new File(mqToolsLogPath);
+			File file = new File(logDir, "mqmaint_err." + fileDate + ".log");
+
+			if(file.exists()) {
+				try (BufferedReader in = new BufferedReader(new FileReader(file))) {
+					String line;
+					while((line = in.readLine()) != null) {
+						if(line.contains("Compressing")) {
+							List<Metric> metricset = new LinkedList<>();
+							metricset.add(new AttributeMetric("queueManager", mqQueueManager.getName()));
+							metricset.add(new AttributeMetric("reasonCode", "COMPRESSING_ERROR"));
+							metricReporter.report(this.getEventType("Event"), metricset);
+
+							Calendar cal = GregorianCalendar.getInstance();
+							cal.setTimeInMillis(nextCompressionErrorScanTime);
+							cal.add(Calendar.DAY_OF_YEAR, 1);
+							nextCompressionErrorScanTime = cal.getTimeInMillis();
+
+							break;
+						}
+					}
+				} catch (Exception e) {
+					logger.error("Trouble trying to scan for compression error in mqtools logs.", e);
+				}
+			}
 		}
 	}
 
@@ -752,9 +826,26 @@ public class MQAgent extends Agent {
 		metricReporter.report(this.getEventType("SysObjectStatus"), metricset);
 	}
 
-	public void addToQueueIgnores(String queueIgnore) {
-		Pattern pattern = Pattern.compile(queueIgnore.trim(), Pattern.CASE_INSENSITIVE);
-		queueIgnores.add(pattern);
+	// Often times a code lookup will result in a lengthy description like abc/xyz/someValue and we just want someValue.
+	public String friendlyCodeLookup(int code, String filter) {
+		String desc = MQConstants.lookup(code, filter);
+		int index = desc.lastIndexOf('/');
+		return index == -1 ? desc : desc.substring(index + 1);
+	}
+
+	public void addToQueueIgnores(List<String> adds) {
+		addPatternsToList(adds, queueIgnores);
+	}
+
+	public void addToQueueIncludes(List<String> adds) {
+		addPatternsToList(adds, queueIncludes);
+	}
+
+	private void addPatternsToList(List<String> adds, List<Pattern> list) {
+		for(String s: adds) {
+			Pattern pattern = Pattern.compile(s.trim(), Pattern.CASE_INSENSITIVE);
+			list.add(pattern);
+		}
 	}
 
 }
