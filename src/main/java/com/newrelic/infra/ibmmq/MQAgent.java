@@ -38,12 +38,12 @@ public class MQAgent extends Agent {
 	private static final String DEFAULT_SERVER_HOST = "localhost";
 	private static final String DEFAULT_EVENT_TYPE = "IBMMQSample";
 	private static final int DEFAULT_SERVER_PORT = 1414;
-	private static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
-	private static final SimpleDateFormat fileNameDateFormat = new SimpleDateFormat("YYYYMMdd");
 
 	private static final Logger logger = LoggerFactory.getLogger(MQAgent.class);
 
 	private boolean accessQueueMode = false;
+	private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
+	private final SimpleDateFormat fileNameDateFormat = new SimpleDateFormat("YYYYMMdd");
 
 	private String serverHost = DEFAULT_SERVER_HOST;
 	private int serverPort = DEFAULT_SERVER_PORT;
@@ -139,7 +139,7 @@ public class MQAgent extends Agent {
 	}
 
 	public String getEventType() {
-		return getEventType(DEFAULT_EVENT_TYPE);
+		return getEventType("");
 	}
 
 	public String getEventType(String subType) {
@@ -170,6 +170,11 @@ public class MQAgent extends Agent {
 		cal.set(Calendar.HOUR_OF_DAY, hour);
 		cal.set(Calendar.MINUTE, minute);
 		nextCompressionErrorScanTime = cal.getTimeInMillis();
+
+		if(nextCompressionErrorScanTime < System.currentTimeMillis()) {
+			cal.add(Calendar.DAY_OF_YEAR, 1);
+			nextCompressionErrorScanTime = cal.getTimeInMillis();
+		}
 	}
 
 	public void setMqToolsLogPath(String mqToolsLogPath) {
@@ -681,7 +686,7 @@ public class MQAgent extends Agent {
 					}
 				}
 			}
-		} catch (Exception e) {
+		} catch (IOException|MQException e) {
 			logger.error("Problem getting event stats from " + queueName + ".", e);
 		} finally {
 			if(queue != null) {
@@ -730,69 +735,71 @@ public class MQAgent extends Agent {
 				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
 				sendSysObjectStatusMetrics(metricset);
 			}
-		} catch (Exception e) {
+		} catch (MQException|IOException e) {
 			logger.error("Problem getting system object status stats for queue manager channel initiator.", e);
 		}
 	}
 
-	private void reportClusterQueueManagerSuspended() {
-		try {
-			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_CLUSTER_Q_MGR);
-			req.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, mqQueueManager.getName());
-			req.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, new int[]{
-					MQConstants.MQIACF_SUSPEND
-			});
+//	private void reportClusterQueueManagerSuspended() {
+//		try {
+//			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_CLUSTER_Q_MGR);
+//			req.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, mqQueueManager.getName());
+//			req.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, new int[]{
+//					MQConstants.MQIACF_SUSPEND
+//			});
+//
+//			agent.connect(mqQueueManager);
+//
+//			PCFMessage[] responses = agent.send(req);
+//			for (PCFMessage res : responses) {
+//				List<Metric> metricset = new LinkedList<>();
+//				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
+//
+//				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
+//				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
+//				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+//
+//				sendSysObjectStatusMetrics(metricset);
+//			}
+//		} catch (Exception e) {
+//			logger.error("Problem getting system object status stats for cluster queue manager.", e);
+//		}
+//	}
 
-			agent.connect(mqQueueManager);
-
-			PCFMessage[] responses = agent.send(req);
-			for (PCFMessage res : responses) {
-				List<Metric> metricset = new LinkedList<>();
-				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
-
-				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
-				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
-				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
-
-				sendSysObjectStatusMetrics(metricset);
-			}
-		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for cluster queue manager.", e);
-		}
-	}
-
-	private void reportChannelListenerStatus() {
-		try {
-			PCFMessage listenerReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER);
-			agent.connect(mqQueueManager);
-
-			PCFMessage[] listenerResponses = agent.send(listenerReq);
-			for (PCFMessage listenerRes : listenerResponses) {
-				PCFMessage statusReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER_STATUS);
-				statusReq.addParameter(MQConstants.MQCACH_LISTENER_NAME,
-						listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME));
-				agent.connect(mqQueueManager);
-
-				PCFMessage[] statusResponses = agent.send(statusReq);
-				for (PCFMessage statusRes : statusResponses) {
-					List<Metric> metricset = new LinkedList<>();
-					metricset.add(new AttributeMetric("object", "ChannelListener"));
-					metricset.add(new AttributeMetric("status", friendlyCodeLookup(
-							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
-					metricset.add(new AttributeMetric("name",
-							statusRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME)));
-
-					sendSysObjectStatusMetrics(metricset);
-				}
-			}
-		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for channel listener.", e);
-		}
-	}
+//	private void reportChannelListenerStatus() {
+//		try {
+//			PCFMessage listenerReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER);
+//			agent.connect(mqQueueManager);
+//
+//			PCFMessage[] listenerResponses = agent.send(listenerReq);
+//			for (PCFMessage listenerRes : listenerResponses) {
+//				PCFMessage statusReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER_STATUS);
+//				statusReq.addParameter(MQConstants.MQCACH_LISTENER_NAME,
+//						listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME));
+//				agent.connect(mqQueueManager);
+//
+//				PCFMessage[] statusResponses = agent.send(statusReq);
+//				for (PCFMessage statusRes : statusResponses) {
+//					List<Metric> metricset = new LinkedList<>();
+//					metricset.add(new AttributeMetric("object", "ChannelListener"));
+//					metricset.add(new AttributeMetric("status", friendlyCodeLookup(
+//							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
+//					metricset.add(new AttributeMetric("name",
+//							statusRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME)));
+//
+//					sendSysObjectStatusMetrics(metricset);
+//				}
+//			}
+//		} catch (Exception e) {
+//			logger.error("Problem getting system object status stats for channel listener.", e);
+//		}
+//	}
 
 	private void checkForCompressionError() {
 		long now = System.currentTimeMillis();
 		if(now >= nextCompressionErrorScanTime) {
+			System.out.println("***** checking for compression error");
+
 			String fileDate = fileNameDateFormat.format(new Date(now));
 			File logDir = new File(mqToolsLogPath);
 			File file = new File(logDir, "mqmaint_err." + fileDate + ".log");
@@ -807,18 +814,18 @@ public class MQAgent extends Agent {
 							metricset.add(new AttributeMetric("reasonCode", "COMPRESSING_ERROR"));
 							metricReporter.report(this.getEventType("Event"), metricset);
 
-							Calendar cal = GregorianCalendar.getInstance();
-							cal.setTimeInMillis(nextCompressionErrorScanTime);
-							cal.add(Calendar.DAY_OF_YEAR, 1);
-							nextCompressionErrorScanTime = cal.getTimeInMillis();
-
 							break;
 						}
 					}
-				} catch (Exception e) {
+				} catch (IOException|MQException e) {
 					logger.error("Trouble trying to scan for compression error in mqtools logs.", e);
 				}
 			}
+
+			Calendar cal = GregorianCalendar.getInstance();
+			cal.setTimeInMillis(nextCompressionErrorScanTime);
+			cal.add(Calendar.DAY_OF_YEAR, 1);
+			nextCompressionErrorScanTime = cal.getTimeInMillis();
 		}
 	}
 
