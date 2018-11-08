@@ -713,8 +713,8 @@ public class MQAgent extends Agent {
 
 	protected void reportSysObjectStatusStats() {
 		reportChannelInitiatorStatus();
-//		reportClusterQueueManagerSuspended();
-//		reportChannelListenerStatus();
+		reportClusterQueueManagerSuspended();
+		reportChannelListenerStatus();
 	}
 
 	private void reportChannelInitiatorStatus() {
@@ -740,60 +740,66 @@ public class MQAgent extends Agent {
 		}
 	}
 
-//	private void reportClusterQueueManagerSuspended() {
-//		try {
-//			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_CLUSTER_Q_MGR);
-//			req.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, mqQueueManager.getName());
-//			req.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, new int[]{
-//					MQConstants.MQIACF_SUSPEND
-//			});
-//
-//			agent.connect(mqQueueManager);
-//
-//			PCFMessage[] responses = agent.send(req);
-//			for (PCFMessage res : responses) {
-//				List<Metric> metricset = new LinkedList<>();
-//				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
-//
-//				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
-//				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
-//				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
-//
-//				sendSysObjectStatusMetrics(metricset);
-//			}
-//		} catch (Exception e) {
-//			logger.error("Problem getting system object status stats for cluster queue manager.", e);
-//		}
-//	}
+	private void reportClusterQueueManagerSuspended() {
+		try {
+			PCFMessage req = new PCFMessage(CMQCFC.MQCMD_INQUIRE_CLUSTER_Q_MGR);
+			req.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, "*");
+			req.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, new int[]{
+					MQConstants.MQIACF_SUSPEND
+			});
 
-//	private void reportChannelListenerStatus() {
-//		try {
-//			PCFMessage listenerReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER);
-//			agent.connect(mqQueueManager);
-//
-//			PCFMessage[] listenerResponses = agent.send(listenerReq);
-//			for (PCFMessage listenerRes : listenerResponses) {
-//				PCFMessage statusReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER_STATUS);
-//				statusReq.addParameter(MQConstants.MQCACH_LISTENER_NAME,
-//						listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME));
-//				agent.connect(mqQueueManager);
-//
-//				PCFMessage[] statusResponses = agent.send(statusReq);
-//				for (PCFMessage statusRes : statusResponses) {
-//					List<Metric> metricset = new LinkedList<>();
-//					metricset.add(new AttributeMetric("object", "ChannelListener"));
-//					metricset.add(new AttributeMetric("status", friendlyCodeLookup(
-//							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
-//					metricset.add(new AttributeMetric("name",
-//							statusRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME)));
-//
-//					sendSysObjectStatusMetrics(metricset);
-//				}
-//			}
-//		} catch (Exception e) {
-//			logger.error("Problem getting system object status stats for channel listener.", e);
-//		}
-//	}
+			agent.connect(mqQueueManager);
+
+			PCFMessage[] responses = agent.send(req);
+			for (PCFMessage res : responses) {
+				List<Metric> metricset = new LinkedList<>();
+				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
+				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+
+				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
+				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
+
+				sendSysObjectStatusMetrics(metricset);
+			}
+		} catch (Exception e) {
+			logger.error("Problem getting system object status stats for cluster queue manager.", e);
+		}
+	}
+
+	private void reportChannelListenerStatus() {
+		try {
+			PCFMessage listenerReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER);
+			listenerReq.addParameter(MQConstants.MQCACH_LISTENER_NAME, "*");
+			agent.connect(mqQueueManager);
+
+			PCFMessage[] listenerResponses = agent.send(listenerReq);
+			for (PCFMessage listenerRes : listenerResponses) {
+				String name = listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME);
+				if(name.contains(".DEFAULT.")) {
+					// Skip the default listener
+					continue;
+				}
+
+				PCFMessage statusReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER_STATUS);
+				statusReq.addParameter(MQConstants.MQCACH_LISTENER_NAME,
+						listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME));
+				agent.connect(mqQueueManager);
+
+				PCFMessage[] statusResponses = agent.send(statusReq);
+				for (PCFMessage statusRes : statusResponses) {
+					List<Metric> metricset = new LinkedList<>();
+					metricset.add(new AttributeMetric("object", "ChannelListener"));
+					metricset.add(new AttributeMetric("status", friendlyCodeLookup(
+							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
+					metricset.add(new AttributeMetric("name", name));
+
+					sendSysObjectStatusMetrics(metricset);
+				}
+			}
+		} catch (Exception e) {
+			logger.error("Problem getting system object status stats for channel listener.", e);
+		}
+	}
 
 	private void checkForCompressionError() {
 		long now = System.currentTimeMillis();
