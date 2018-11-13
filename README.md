@@ -9,7 +9,7 @@ The monitor connects to each queueManager specified in the plugin.json.
 
 ## Monitor requirements
 
-1. Java Runtime version 1.6 or later
+1. Java Runtime version 1.7 or later
 2. IBM WebSphere MQ v7 or later. MQ Java Client libraries are not distributed along with this monitor. They must be supplied though the CLASSPATH entry (see start up script- start.sh)
 
 
@@ -74,7 +74,7 @@ The "agents" object contains an array of “agent” objects. Each “agent” o
 * "reportEventMessages" - true to report MQ Event messages
 * "reportMaintenanceErrors" - true to report errors with MQ Tools daily maintenance processes.
 * "dailyMaintenanceErrorScanTime" - HH:MM to scan for maintenance errors each day.  This should be a time shortly after the daily maintenance processes run.
-* "mqToolsLogPath" - The path to the MQ Tools logs. Ex: /var/mqm/mqtools_log
+* "mqToolsLogPath" - The logPath to the MQ Tools logs. Ex: /var/mqm/mqtools_log
 * "version" - Specify a version number here when you want the agent to run in the way it did in an older version.  For example, version 1 reported both Queue and Channel metrics under the single IBMMQSample event type rather than a sub type specific event such as IBMMQSampleChannel.
 
 ```
