@@ -1,28 +1,10 @@
 package com.newrelic.infra.ibmmq;
 
-import java.io.*;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.regex.Pattern;
-
 import com.ibm.mq.*;
-import org.apache.commons.lang3.BooleanUtils;
-import org.apache.commons.lang3.StringUtils;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.CMQXC;
 import com.ibm.mq.constants.MQConstants;
-import com.ibm.mq.pcf.MQCFH;
-import com.ibm.mq.pcf.MQCFIN;
-import com.ibm.mq.pcf.MQCFSL;
-import com.ibm.mq.pcf.MQCFST;
-import com.ibm.mq.pcf.PCFException;
-import com.ibm.mq.pcf.PCFMessage;
-import com.ibm.mq.pcf.PCFMessageAgent;
-import com.ibm.mq.pcf.PCFParameter;
+import com.ibm.mq.pcf.*;
 import com.newrelic.infra.publish.api.Agent;
 import com.newrelic.infra.publish.api.InventoryReporter;
 import com.newrelic.infra.publish.api.MetricReporter;
@@ -30,6 +12,18 @@ import com.newrelic.infra.publish.api.metrics.AttributeMetric;
 import com.newrelic.infra.publish.api.metrics.GaugeMetric;
 import com.newrelic.infra.publish.api.metrics.Metric;
 import com.newrelic.infra.publish.api.metrics.RateMetric;
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.regex.Pattern;
 
 public class MQAgent extends Agent {
 	public static final int LATEST_VERSION = 2;
@@ -56,6 +50,9 @@ public class MQAgent extends Agent {
 	private boolean reportMaintenanceErrors = false;
 	private long nextCompressionErrorScanTime;
 	private String mqToolsLogPath;
+	private boolean monitorErrorLogs;
+	private String errorLogPath;
+	private String agentTempPath;
 	private int version = LATEST_VERSION;
 
 	private MQQueueManager mqQueueManager;
@@ -181,6 +178,18 @@ public class MQAgent extends Agent {
 		this.mqToolsLogPath = mqToolsLogPath;
 	}
 
+	public void setMonitorErrorLogs(boolean monitorErrorLogs) {
+		this.monitorErrorLogs = monitorErrorLogs;
+	}
+
+	public void setErrorLogPath(String errorLogPath) {
+		this.errorLogPath = errorLogPath;
+	}
+
+	public void setAgentTempPath(String agentTempPath) {
+		this.agentTempPath = agentTempPath;
+	}
+
 	public MQAgent() {
 		super();
 		accessQueueMode =  BooleanUtils.toBoolean( System.getProperty(QUEUE_ACCESS_PROPERTY, "true"));
@@ -224,6 +233,10 @@ public class MQAgent extends Agent {
 
 			if(reportMaintenanceErrors) {
 				checkForCompressionError();
+			}
+
+			if(monitorErrorLogs) {
+				reportErrorLogEvents();
 			}
 
 		} catch (MQException e) {
@@ -396,7 +409,7 @@ public class MQAgent extends Agent {
                         String queueName = qName.trim();
                         List<Metric> metricset= metricMap.get(queueName);
                         if (metricset== null){
-                            metricset=  new LinkedList<Metric>();
+                            metricset=  new LinkedList<>();
                             metricset.add(new AttributeMetric("provider", "IBM"));
                             metricset.add(new AttributeMetric("entity", "queue"));
                             metricset.add(new AttributeMetric("qManagerName", serverQueueManagerName));
@@ -658,7 +671,7 @@ public class MQAgent extends Agent {
 
 					metricset.add(new AttributeMetric("putTime", dateTimeFormat.format(message.putDateTime.getTime())));
 					metricset.add(new AttributeMetric("eventQueue", queueName));
-					metricset.add(new AttributeMetric("queueManager", pcf.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+					metricset.add(new AttributeMetric("queueManager", pcf.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim()));
 					metricset.add(new AttributeMetric("reasonCode", MQConstants.lookupReasonCode(pcf.getReason())));
 					metricset.add(new AttributeMetric("reasonQualifier", tryGetPCFIntParam(pcf, MQConstants.MQIACF_REASON_QUALIFIER, "MQRQ_.*")));
 
@@ -732,7 +745,7 @@ public class MQAgent extends Agent {
 				metricset.add(new AttributeMetric("object", "QueueManagerChannelInitiator"));
 				metricset.add(new AttributeMetric("status", friendlyCodeLookup(
 						res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS), "MQSVC_.*")));
-				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
+				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim()));
 				sendSysObjectStatusMetrics(metricset);
 			}
 		} catch (MQException|IOException e) {
@@ -791,7 +804,7 @@ public class MQAgent extends Agent {
 					metricset.add(new AttributeMetric("object", "ChannelListener"));
 					metricset.add(new AttributeMetric("status", friendlyCodeLookup(
 							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
-					metricset.add(new AttributeMetric("name", name));
+					metricset.add(new AttributeMetric("name", name.trim()));
 
 					sendSysObjectStatusMetrics(metricset);
 				}
@@ -818,7 +831,7 @@ public class MQAgent extends Agent {
 							List<Metric> metricset = new LinkedList<>();
 							metricset.add(new AttributeMetric("queueManager", mqQueueManager.getName()));
 							metricset.add(new AttributeMetric("reasonCode", "COMPRESSING_ERROR"));
-							metricReporter.report(this.getEventType("Event"), metricset);
+							metricReporter.report(getEventType("Event"), metricset);
 
 							break;
 						}
@@ -832,6 +845,24 @@ public class MQAgent extends Agent {
 			cal.setTimeInMillis(nextCompressionErrorScanTime);
 			cal.add(Calendar.DAY_OF_YEAR, 1);
 			nextCompressionErrorScanTime = cal.getTimeInMillis();
+		}
+	}
+
+	private void reportErrorLogEvents() {
+		String filePath = errorLogPath + "/AMQERR01.LOG";
+		LogReader log = new LogReader(filePath, agentTempPath + "/log-reader.state", "AMQ9526");
+
+		try {
+			String line = log.findSearchValueLine();
+			if (line != null) {
+				List<Metric> metricset = new LinkedList<>();
+				metricset.add(new AttributeMetric("queueManager", mqQueueManager.getName()));
+				metricset.add(new AttributeMetric("reasonCode", "CHANNEL_OUT_OF_SYNC"));
+				metricset.add(new AttributeMetric("details", line));
+				metricReporter.report(getEventType("Event"), metricset);
+			}
+		} catch (IOException|MQException e) {
+			logger.error("Trouble searching " + filePath + " for errors.");
 		}
 	}
 

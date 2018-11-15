@@ -1,13 +1,11 @@
 package com.newrelic.infra.ibmmq;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
 import com.newrelic.infra.publish.api.Agent;
 import com.newrelic.infra.publish.api.AgentFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class MQMonitorAgentFactory extends AgentFactory {
 
@@ -43,15 +41,26 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		String channel = (String) agentProperties.get("channel");
 		String eventType = (String) agentProperties.get("eventType");
 		int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION);
-		boolean reportEventMessages = (Boolean) agentProperties.get("reportEventMessages");
-		boolean reportMaintenanceErrors = (Boolean) agentProperties.get("reportMaintenanceErrors");
-		String dailyMaintenanceErrorScanTime = (String) agentProperties.get("dailyMaintenanceErrorScanTime");
-		String mqToolsLogPath = (String) agentProperties.get("mqToolsLogPath");
+		boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
+		boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", null);
+		String dailyMaintenanceErrorScanTime = (String) agentProperties.getOrDefault("dailyMaintenanceErrorScanTime", null);
+		String mqToolsLogPath = (String) agentProperties.getOrDefault("mqToolsLogPath", null);
+		boolean monitorErrorLogs = (Boolean) agentProperties.getOrDefault("monitorErrorLogs", false);
+		String errorLogPath = (String) agentProperties.getOrDefault("errorLogPath", null);
+		String agentTempPath = (String) agentProperties.getOrDefault("agentTempPath", null);
 
 		if (name == null || host == null || port == null || queueManager == null || channel == null) {
 			throw new Exception("'name', 'host', 'port', 'queueManager' and 'channel' are required agent properties.");
 		}
-		
+
+		if(reportMaintenanceErrors && (dailyMaintenanceErrorScanTime == null || mqToolsLogPath == null)) {
+			throw new Exception("'dailyMaintenanceErrorScanTime' and 'mqToolsLogPath' are required when 'reportMaintenanceErrors' is true");
+		}
+
+		if(monitorErrorLogs && errorLogPath == null) {
+			throw new Exception("'errorLogPath' is required when 'monitorErrorLogs' is true");
+		}
+
 		MQAgent agent = new MQAgent();
 		agent.setServerHost(host);
 		agent.setServerPort(port.intValue());
@@ -65,6 +74,9 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		agent.setReportMaintenanceErrors(reportMaintenanceErrors);
 		agent.setDailyMaintenanceErrorScanTime(dailyMaintenanceErrorScanTime);
 		agent.setMqToolsLogPath(mqToolsLogPath);
+		agent.setMonitorErrorLogs(monitorErrorLogs);
+		agent.setErrorLogPath(errorLogPath);
+		agent.setAgentTempPath(agentTempPath);
 
 		agent.addToQueueIgnores(globalQueueIgnores);
 		agent.addToQueueIncludes(globalQueueIncludes);
