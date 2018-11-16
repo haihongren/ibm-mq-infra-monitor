@@ -71,10 +71,13 @@ The "agents" object contains an array of “agent” objects. Each “agent” o
 * "channel" - channel name used to connect to the queue manager. Typically you can use SYSTEM.DEF.SVRCONN
 * "username" - username used to connection (optional if not needed)
 * "password" – password used to connection (optional if not needed)
-* "reportEventMessages" - true to report MQ Event messages
+* "reportEventMessages" - true to report MQ Event messages.
 * "reportMaintenanceErrors" - true to report errors with MQ Tools daily maintenance processes.
 * "dailyMaintenanceErrorScanTime" - HH:MM to scan for maintenance errors each day.  This should be a time shortly after the daily maintenance processes run.
-* "mqToolsLogPath" - The logPath to the MQ Tools logs. Ex: /var/mqm/mqtools_log
+* "mqToolsLogPath" - The logPath to the MQ Tools logs. Ex: /var/mqm/mqtools_log.
+* "monitorErrorLogs" - true to gather select metrics from the queue manager error logs.
+* "errorLogPath" - Location of queue manager error logs. Only required when monitorErrorLogs=true.
+* "agentTempPath" - A directory where the agent can read/write temp files for it's own use.
 * "version" - Specify a version number here when you want the agent to run in the way it did in an older version.  For example, version 1 reported both Queue and Channel metrics under the single IBMMQSample event type rather than a sub type specific event such as IBMMQSampleChannel.
 
 ```
