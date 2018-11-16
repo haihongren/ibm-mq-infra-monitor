@@ -775,7 +775,11 @@ public class MQAgent extends Agent {
 				sendSysObjectStatusMetrics(metricset);
 			}
 		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for cluster queue manager.", e);
+			if(e instanceof PCFException && ((PCFException)e).reasonCode == 2085) {
+				logger.debug("No cluster queue manager configured to check if suspended.");
+			} else {
+				logger.error("Problem getting system object status stats for cluster queue manager.", e);
+			}
 		}
 	}
 
