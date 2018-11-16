@@ -211,8 +211,18 @@ public class MQAgent extends Agent {
         Map<String,List<Metric>> metricMap = new HashMap<>();
 
         try {
-			mqQueueManager = connect();
-            agent = new PCFMessageAgent(mqQueueManager);
+        	try {
+				mqQueueManager = connect();
+			} catch (MQException e) {
+        		reportEventMetric(new Date(), null, serverQueueManagerName, "QUEUE_MANAGER_NOT_AVAILABLE", null, e.getMessage());
+				throw e;
+			}
+			try {
+				agent = new PCFMessageAgent(mqQueueManager);
+			} catch (MQException e) {
+				reportEventMetric(new Date(), null, serverQueueManagerName, "COMMAND_SERVER_NOT_RESPONDING", null, e.getMessage());
+				throw e;
+			}
 
 			if (accessQueueMode) {
                 metricMap.putAll(reportQueueStats());
@@ -667,14 +677,6 @@ public class MQAgent extends Agent {
 					queue.get(message, getOptions);
 					PCFMessage pcf = new PCFMessage(message);
 
-					List<Metric> metricset = new LinkedList<>();
-
-					metricset.add(new AttributeMetric("putTime", dateTimeFormat.format(message.putDateTime.getTime())));
-					metricset.add(new AttributeMetric("eventQueue", queueName));
-					metricset.add(new AttributeMetric("queueManager", pcf.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim()));
-					metricset.add(new AttributeMetric("reasonCode", MQConstants.lookupReasonCode(pcf.getReason())));
-					metricset.add(new AttributeMetric("reasonQualifier", tryGetPCFIntParam(pcf, MQConstants.MQIACF_REASON_QUALIFIER, "MQRQ_.*")));
-
 					StringBuilder b = new StringBuilder();
 					Enumeration<PCFParameter> params = pcf.getParameters();
 					while (params.hasMoreElements()) {
@@ -684,9 +686,11 @@ public class MQAgent extends Agent {
 						}
 					}
 					String details = b.length() > 0 ? b.substring(0, b.length() - 1) : "";
-					metricset.add(new AttributeMetric("details", details));
 
-					metricReporter.report(this.getEventType("Event"), metricset);
+					reportEventMetric(message.putDateTime.getTime(), queueName,
+							pcf.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim(),
+							MQConstants.lookupReasonCode(pcf.getReason()),
+							tryGetPCFIntParam(pcf, MQConstants.MQIACF_REASON_QUALIFIER, "MQRQ_.*"), details);
 
 					message.clearMessage();
 
@@ -710,6 +714,20 @@ public class MQAgent extends Agent {
 				}
 			}
 		}
+	}
+
+	private void reportEventMetric(Date dateTime, String eventQueueName, String queueManager, String reason,
+								   String reasonQualifier, String details) {
+		List<Metric> metricset = new LinkedList<>();
+
+		metricset.add(new AttributeMetric("putTime", dateTimeFormat.format(dateTime)));
+		metricset.add(new AttributeMetric("eventQueue", eventQueueName));
+		metricset.add(new AttributeMetric("queueManager", queueManager));
+		metricset.add(new AttributeMetric("reasonCode", reason));
+		metricset.add(new AttributeMetric("reasonQualifier", reasonQualifier));
+		metricset.add(new AttributeMetric("details", details));
+
+		metricReporter.report(this.getEventType("Event"), metricset);
 	}
 
 	private String tryGetPCFIntParam(PCFMessage pcf, int paramId, String lookupFilter) throws PCFException {
@@ -774,7 +792,7 @@ public class MQAgent extends Agent {
 
 				sendSysObjectStatusMetrics(metricset);
 			}
-		} catch (Exception e) {
+		} catch (MQException|IOException e) {
 			if(e instanceof PCFException && ((PCFException)e).reasonCode == 2085) {
 				logger.debug("No cluster queue manager configured to check if suspended.");
 			} else {
@@ -813,7 +831,7 @@ public class MQAgent extends Agent {
 					sendSysObjectStatusMetrics(metricset);
 				}
 			}
-		} catch (Exception e) {
+		} catch (MQException|IOException e) {
 			logger.error("Problem getting system object status stats for channel listener.", e);
 		}
 	}

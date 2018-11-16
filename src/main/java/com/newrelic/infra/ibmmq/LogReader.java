@@ -34,13 +34,14 @@ public class LogReader {
 			try (RandomAccessFile raf = new RandomAccessFile(logPath, "r")) {
 				raf.seek(start);
 
-				BufferedReader in = new BufferedReader(new InputStreamReader(Channels.newInputStream(raf.getChannel())));
+				try (BufferedReader in = new BufferedReader(new InputStreamReader(Channels.newInputStream(raf.getChannel())))) {
 
-				String line;
-				while ((line = in.readLine()) != null) {
-					if(line.contains(searchValue)) {
-						foundLine = line;
-						break;
+					String line;
+					while ((line = in.readLine()) != null) {
+						if (line.contains(searchValue)) {
+							foundLine = line;
+							break;
+						}
 					}
 				}
 

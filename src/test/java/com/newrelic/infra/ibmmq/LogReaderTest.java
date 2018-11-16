@@ -25,7 +25,7 @@ public class LogReaderTest {
 	}
 
 	@After
-	public void tearDown() {
+	public void tearDown() throws IOException {
 		removeFile(logPath);
 		removeFile(statePath);
 	}
@@ -58,9 +58,12 @@ public class LogReaderTest {
 		}
 	}
 
-	private void removeFile(String path) {
+	private void removeFile(String path) throws IOException {
 		File f = new File(path);
-		if(f.exists())
-			f.delete();
+		if(f.exists()) {
+			if(!f.delete()) {
+				throw new IOException("Couldn't delete file " + path);
+			}
+		}
 	}
 }
