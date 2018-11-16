@@ -9,7 +9,7 @@ The monitor connects to each queueManager specified in the plugin.json.
 
 ## Monitor requirements
 
-1. Java Runtime version 1.7 or later
+1. Java Runtime version 1.8 or later
 2. IBM WebSphere MQ v7 or later. MQ Java Client libraries are not distributed along with this monitor. They must be supplied though the CLASSPATH entry (see start up script- start.sh)
 
 
