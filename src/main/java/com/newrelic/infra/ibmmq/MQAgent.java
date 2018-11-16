@@ -769,7 +769,7 @@ public class MQAgent extends Agent {
 				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
 				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
 
-				int suspended = res.getIntParameterValue(MQConstants.MQIACF_CHINIT_STATUS);
+				int suspended = res.getIntParameterValue(MQConstants.MQIACF_SUSPEND);
 				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
 
 				sendSysObjectStatusMetrics(metricset);
