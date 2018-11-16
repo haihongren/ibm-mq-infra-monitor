@@ -215,13 +215,15 @@ public class MQAgent extends Agent {
 				mqQueueManager = connect();
 			} catch (MQException e) {
         		reportEventMetric(new Date(), null, serverQueueManagerName, "QUEUE_MANAGER_NOT_AVAILABLE", null, e.getMessage());
-				throw e;
+				logger.error("Problem creating MQQueueManager", e);
+				return;
 			}
 			try {
 				agent = new PCFMessageAgent(mqQueueManager);
 			} catch (MQException e) {
 				reportEventMetric(new Date(), null, serverQueueManagerName, "COMMAND_SERVER_NOT_RESPONDING", null, e.getMessage());
-				throw e;
+				logger.error("Problem creating PCFMessageAgent", e);
+				return;
 			}
 
 			if (accessQueueMode) {
@@ -249,9 +251,6 @@ public class MQAgent extends Agent {
 				reportErrorLogEvents();
 			}
 
-		} catch (MQException e) {
-			logger.error("Error occured fetching metrics for {}:{}/{}" , this.getServerHost() , this.getServerPort() , serverQueueManagerName);
-			throw e;
 		} finally {
             try {
                 if (agent !=null){
