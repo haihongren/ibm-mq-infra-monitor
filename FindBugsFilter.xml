@@ -4,4 +4,25 @@
     <Method name="connect" />
     <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" />
   </Match>
+  <Match>
+    <Bug pattern="DM_DEFAULT_ENCODING" />
+  </Match>
+  <Match>
+    <!-- We check for existence of a file and if it doesn't exist we create new.  Findbugs complains
+     that we don't use the boolean return value where false would indicate the file wasn't created BECAUSE IT ALREADY
+     EXISTS, which we already checked for, so we would never get false.  IOException is thrown up if can't create the file. -->
+    <Class name="com.newrelic.infra.ibmmq.LogReader" />
+    <Method name="persistState" />
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE" />
+  </Match>
+  <Match>
+    <Class name="com.newrelic.infra.ibmmq.LogReaderTest" />
+    <Method name="createTestFile" />
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE" />
+  </Match>
+  <Match>
+    <!-- It's a JUnit test class where things are initialized in annotated setup method. -->
+    <Class name="com.newrelic.infra.ibmmq.LogReaderTest" />
+    <Bug pattern="UWF_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR" />
+  </Match>
 </FindBugsFilter>

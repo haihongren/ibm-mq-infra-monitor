@@ -10,7 +10,7 @@ public class MQRunnerMain {
             runner.add(new MQMonitorAgentFactory());
             runner.setupAndRun(); // Never returns
         } catch (Exception e) {
-            System.err.println("ERROR: " + e.getMessage());
+        	e.printStackTrace(System.err);
             System.exit(-1);
         }
     }

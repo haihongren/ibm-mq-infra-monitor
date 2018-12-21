@@ -9,7 +9,7 @@ The monitor connects to each queueManager specified in the plugin.json.
 
 ## Monitor requirements
 
-1. Java Runtime version 1.6 or later
+1. Java Runtime version 1.8 or later
 2. IBM WebSphere MQ v7 or later. MQ Java Client libraries are not distributed along with this monitor. They must be supplied though the CLASSPATH entry (see start up script- start.sh)
 
 
@@ -57,7 +57,8 @@ The "global" object can contain the overall plugin properties:
 * "insights_mode" - If this monitor is started in Insights mode, then the insights_insert_key here will be used to post metric events.
 * "infra_mode" - If this monitor is started in Infra (or RPC) mode, then this section contains the RPC service listen port. The infra agent plugin can then connect this to port to query metrics.
 * "proxy" - Enter the proxy setting in this section if a proxy is required. See more detail later on in this document.
-* "queueIgnores" -  a array of "ignoreRegEx" objects. The value of the object is a regular expression. Any queue name on any queue manager that matches the regular expression will be ignored (i.e. no metrics collected). The array can contain any number of entries.
+* "queueIgnores" -  An array of "ignoreRegEx" objects. The value of the object is a regular expression. Any queue name on any queue manager that matches the regular expression will be ignored (i.e. no metrics collected). The array can contain any number of entries.
+* "queueIncludes" - Overrides queueIgnores with same format. This allows wildcard excludes but then the ability to explicitly include specific queues here.
 
 
 The "agents" object contains an array of “agent” objects. Each “agent” object has the following properties.
@@ -70,7 +71,14 @@ The "agents" object contains an array of “agent” objects. Each “agent” o
 * "channel" - channel name used to connect to the queue manager. Typically you can use SYSTEM.DEF.SVRCONN
 * "username" - username used to connection (optional if not needed)
 * "password" – password used to connection (optional if not needed)
-* "queueIgnores" – the same as the global queueIgnores except specific to this queue manager
+* "reportEventMessages" - true to report MQ Event messages.
+* "reportMaintenanceErrors" - true to report errors with MQ Tools daily maintenance processes.
+* "dailyMaintenanceErrorScanTime" - HH:MM to scan for maintenance errors each day.  This should be a time shortly after the daily maintenance processes run.
+* "mqToolsLogPath" - The logPath to the MQ Tools logs. Ex: /var/mqm/mqtools_log.
+* "monitorErrorLogs" - true to gather select metrics from the queue manager error logs.
+* "errorLogPath" - Location of queue manager error logs. Only required when monitorErrorLogs=true.
+* "agentTempPath" - A directory where the agent can read/write temp files for it's own use.
+* "version" - Specify a version number here when you want the agent to run in the way it did in an older version.  For example, version 1 reported both Queue and Channel metrics under the single IBMMQSample event type rather than a sub type specific event such as IBMMQSampleChannel.
 
 ```
 {

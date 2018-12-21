@@ -82,5 +82,9 @@ public class MQAgentTest {
         // Setting it to a value works
         testAgent.setEventType("MyEventType");
         assertEquals("MyEventType", testAgent.getEventType());
+
+        assertEquals("MyEventTypeQueue", testAgent.getEventType("Queue"));
+        testAgent.setVersion(1);
+        assertEquals("MyEventType", testAgent.getEventType("Queue"));
     }
 }
