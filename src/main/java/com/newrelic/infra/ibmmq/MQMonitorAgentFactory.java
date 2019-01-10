@@ -42,7 +42,7 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		String eventType = (String) agentProperties.get("eventType");
 		int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION);
 		boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
-		boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", null);
+		boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", false);
 		String dailyMaintenanceErrorScanTime = (String) agentProperties.getOrDefault("dailyMaintenanceErrorScanTime", null);
 		String mqToolsLogPath = (String) agentProperties.getOrDefault("mqToolsLogPath", null);
 		boolean monitorErrorLogs = (Boolean) agentProperties.getOrDefault("monitorErrorLogs", false);
