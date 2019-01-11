@@ -159,6 +159,12 @@ public class MQAgent extends Agent {
 	}
 
 	public void setDailyMaintenanceErrorScanTime(String time) {
+	    if (!reportMaintenanceErrors ){
+            logger.debug("Skipped setDailyMaintenanceErrorScanTime={}", reportMaintenanceErrors);
+
+            return;
+        }
+
 		int index = time.indexOf(':');
 		int hour = Integer.parseInt(time.substring(0, index));
 		int minute = Integer.parseInt(time.substring(index+1));
