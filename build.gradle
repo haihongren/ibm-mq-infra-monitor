@@ -56,7 +56,10 @@ jar {
         }
     }
     manifest {
-        attributes "Main-Class": "com.newrelic.infra.ibmmq.MQRunnerMain"
+        attributes "Main-Class": "com.newrelic.infra.ibmmq.MQRunnerMain",
+                    'Implementation-Title' : 'IBM-MQ-INFRA-MONITOR',
+                    'Implementation-Version' : version
+
     }
     archiveName 'plugin.jar'
 }
@@ -83,10 +86,31 @@ task copyReadMe(type: Copy) {
     include 'README.md'
 }
 
+task createPackage( type: Zip) {
+    def proot=project.rootDir.toString()
+    def releaseDir= "$buildDir" +'/releases'
+
+
+    mkdir releaseDir
+
+    from  ("${distsDir}"){
+        include '**/*'
+    }
+
+    baseName= project.name
+    destinationDir(file(releaseDir))
+
+    doLast{
+        printf("Release zip deployed to %s",  outputs.files.singleFile.toString())
+    }
+}
+
+
 build.dependsOn "copyJarToBin"
 build.dependsOn "copyToConfig"
 build.dependsOn "copyScripts"
 build.dependsOn "copyReadMe"
+build.dependsOn "createPackage"
 
 // Findbugs is responsible for static analysis of Java code for common mistakes and risks
 // See: https://docs.gradle.org/current/dsl/org.gradle.api.plugins.quality.FindBugsExtension.html
