@@ -244,9 +244,10 @@ public class MQAgent extends Agent {
 
             reportChannelStats();
 
+			reportSysObjectStatusStats();
+			
 			if(reportEventMessages) {
 				reportEventStats();
-				reportSysObjectStatusStats();
 			}
 
 			if(reportMaintenanceErrors) {
@@ -348,6 +349,7 @@ public class MQAgent extends Agent {
 				int openOutputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 				int oldestMsgAge = response.getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
 				int uncommittedMsgs = response.getIntParameterValue(MQConstants.MQIACF_UNCOMMITTED_MSGS);
+
 				int[] queueTimeIndicator = response.getIntListParameterValue(MQConstants.MQIACF_Q_TIME_INDICATOR);
 
 				String lastGetDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
@@ -497,7 +499,6 @@ public class MQAgent extends Agent {
 							Integer maxDepth = queue.getMaximumDepth();
 							Integer openInputCount = queue.getOpenInputCount();
 							Integer openOutputCount = queue.getOpenOutputCount();
-
 
 							Float percent = 0.0F;
 							if(maxDepth > 0) {

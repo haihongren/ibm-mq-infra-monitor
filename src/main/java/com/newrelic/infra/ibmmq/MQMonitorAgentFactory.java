@@ -40,14 +40,31 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		String queueManager = (String) agentProperties.get("queueManager");
 		String channel = (String) agentProperties.get("channel");
 		String eventType = (String) agentProperties.get("eventType");
-		int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION);
-		boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
-		boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", false);
-		String dailyMaintenanceErrorScanTime = (String) agentProperties.getOrDefault("dailyMaintenanceErrorScanTime", null);
-		String mqToolsLogPath = (String) agentProperties.getOrDefault("mqToolsLogPath", null);
-		boolean monitorErrorLogs = (Boolean) agentProperties.getOrDefault("monitorErrorLogs", false);
-		String errorLogPath = (String) agentProperties.getOrDefault("errorLogPath", null);
-		String agentTempPath = (String) agentProperties.getOrDefault("agentTempPath", null);
+		//We need to preserve JRE 1.6 compatibility for IBM MQ Monitor. 
+		//This is far easier than having our legacy customers install a compatible JRE 1.8 in their environments
+		//int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION); 
+		int version = (int) getOrDefault(agentProperties, "version", MQAgent.LATEST_VERSION);
+		
+		//boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
+		boolean reportEventMessages = (Boolean) getOrDefault(agentProperties, "reportEventMessages", false);
+		
+		//boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", false);
+		boolean reportMaintenanceErrors = (Boolean) getOrDefault(agentProperties, "reportMaintenanceErrors", false);
+		
+		//String dailyMaintenanceErrorScanTime = (String) agentProperties.getOrDefault("dailyMaintenanceErrorScanTime", null);
+		String dailyMaintenanceErrorScanTime = (String) getOrDefault(agentProperties, "dailyMaintenanceErrorScanTime", null);
+		
+		//String mqToolsLogPath = (String) agentProperties.getOrDefault("mqToolsLogPath", null);
+		String mqToolsLogPath = (String) getOrDefault(agentProperties, "mqToolsLogPath", null);
+		
+		//boolean monitorErrorLogs = (Boolean) agentProperties.getOrDefault("monitorErrorLogs", false);
+		boolean monitorErrorLogs = (Boolean) getOrDefault(agentProperties, "monitorErrorLogs", false);
+		
+		//String errorLogPath = (String) agentProperties.getOrDefault("errorLogPath", null);
+		String errorLogPath = (String) getOrDefault(agentProperties, "errorLogPath", null);
+		
+		//String agentTempPath = (String) agentProperties.getOrDefault("agentTempPath", null);
+		String agentTempPath = (String) getOrDefault(agentProperties, "agentTempPath", null);
 
 		if (name == null || host == null || port == null || queueManager == null || channel == null) {
 			throw new Exception("'name', 'host', 'port', 'queueManager' and 'channel' are required agent properties.");
@@ -82,5 +99,9 @@ public class MQMonitorAgentFactory extends AgentFactory {
 		agent.addToQueueIncludes(globalQueueIncludes);
 
 		return agent ;
+	}
+	
+	private static <K, V> V getOrDefault(Map<K,V> map, K key, V defaultValue) {
+	    return map.containsKey(key) ? map.get(key) : defaultValue;
 	}
 }
