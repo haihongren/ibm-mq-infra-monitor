@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class MQMonitorAgentFactory extends AgentFactory {
+public class MQAgentFactory extends AgentFactory {
 
 	private static final int DEFAULT_PORT = 1414;
 	
@@ -78,26 +78,28 @@ public class MQMonitorAgentFactory extends AgentFactory {
 			throw new Exception("'errorLogPath' is required when 'monitorErrorLogs' is true");
 		}
 
-		MQAgent agent = new MQAgent();
-		agent.setServerHost(host);
-		agent.setServerPort(port.intValue());
-		agent.setServerAuthUser(username);
-		agent.setServerAuthPassword(password);
-		agent.setServerChannelName(channel);
-		agent.setServerQueueManagerName(queueManager);
-		agent.setEventType(eventType);
-		agent.setReportEventMessages(reportEventMessages);
-		agent.setVersion(version);
-		agent.setReportMaintenanceErrors(reportMaintenanceErrors);
+		AgentConfig agentConfig = new AgentConfig();
+		agentConfig.setServerHost(host);
+		agentConfig.setServerPort(port.intValue());
+		agentConfig.setServerAuthUser(username);
+		agentConfig.setServerAuthPassword(password);
+		agentConfig.setServerChannelName(channel);
+		agentConfig.setServerQueueManagerName(queueManager);
+		agentConfig.setEventType(eventType);
+		agentConfig.setReportEventMessages(reportEventMessages);
+		
+		agentConfig.setVersion(version);
+		agentConfig.setReportMaintenanceErrors(reportMaintenanceErrors);
+		agentConfig.setMqToolsLogPath(mqToolsLogPath);
+		agentConfig.setMonitorErrorLogs(monitorErrorLogs);
+		agentConfig.setErrorLogPath(errorLogPath);
+		agentConfig.setAgentTempPath(agentTempPath);
+
+		agentConfig.addToQueueIgnores(globalQueueIgnores);
+		agentConfig.addToQueueIncludes(globalQueueIncludes);
+
+		MQAgent agent = new MQAgent(agentConfig);
 		agent.setDailyMaintenanceErrorScanTime(dailyMaintenanceErrorScanTime);
-		agent.setMqToolsLogPath(mqToolsLogPath);
-		agent.setMonitorErrorLogs(monitorErrorLogs);
-		agent.setErrorLogPath(errorLogPath);
-		agent.setAgentTempPath(agentTempPath);
-
-		agent.addToQueueIgnores(globalQueueIgnores);
-		agent.addToQueueIncludes(globalQueueIncludes);
-
 		return agent ;
 	}
 	

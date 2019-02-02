@@ -12,43 +12,43 @@ public class MQAgentTest {
     @Test
     public void testSetServerHost() {
         final String DefaultServerHost = "localhost";
-        MQAgent testAgent = new MQAgent();
+        AgentConfig agentConfig = new AgentConfig();
 
         // Assert the default comes through
-        assertEquals(DefaultServerHost, testAgent.getServerHost());
+        assertEquals(DefaultServerHost, agentConfig.getServerHost());
 
         // Setting it Null returns default
-        testAgent.setServerHost(null);
-        assertEquals(DefaultServerHost, testAgent.getServerHost());
+        agentConfig.setServerHost(null);
+        assertEquals(DefaultServerHost, agentConfig.getServerHost());
 
         // Setting it Empty returns default
-        testAgent.setServerHost("");
-        assertEquals(DefaultServerHost, testAgent.getServerHost());
+        agentConfig.setServerHost("");
+        assertEquals(DefaultServerHost, agentConfig.getServerHost());
 
         // Setting it to a value works
-        testAgent.setServerHost("my.host.example.com");
-        assertEquals("my.host.example.com", testAgent.getServerHost());
+        agentConfig.setServerHost("my.host.example.com");
+        assertEquals("my.host.example.com", agentConfig.getServerHost());
     }
 
     @Test
     public void testSetServerPort() {
         final int DefaultServerPort = 1414;
-        MQAgent testAgent = new MQAgent();
+        AgentConfig agentConfig = new AgentConfig();
 
         // Assert the default comes through
-        assertEquals(DefaultServerPort, testAgent.getServerPort());
+        assertEquals(DefaultServerPort, agentConfig.getServerPort());
 
         // Setting it zero returns default
-        testAgent.setServerPort(0);
-        assertEquals(DefaultServerPort, testAgent.getServerPort());
+        agentConfig.setServerPort(0);
+        assertEquals(DefaultServerPort, agentConfig.getServerPort());
 
         // Setting it high returns default
-        testAgent.setServerPort(100000);
-        assertEquals(DefaultServerPort, testAgent.getServerPort());
+        agentConfig.setServerPort(100000);
+        assertEquals(DefaultServerPort, agentConfig.getServerPort());
 
         // Setting it to a value works
-        testAgent.setServerPort(22222);
-        assertEquals(22222, testAgent.getServerPort());
+        agentConfig.setServerPort(22222);
+        assertEquals(22222, agentConfig.getServerPort());
     }
 
     @Test
@@ -66,25 +66,25 @@ public class MQAgentTest {
     @Test
     public void testSetEventType() {
         final String DefaultEventType = "IBMMQSample";
-        MQAgent testAgent = new MQAgent();
+        AgentConfig agentConfig = new AgentConfig();
 
         // Assert the default comes through
-        assertEquals(DefaultEventType, testAgent.getEventType());
+        assertEquals(DefaultEventType, agentConfig.getEventType());
 
         // Setting it Null returns default
-        testAgent.setEventType(null);
-        assertEquals(DefaultEventType, testAgent.getEventType());
+        agentConfig.setEventType(null);
+        assertEquals(DefaultEventType, agentConfig.getEventType());
 
         // Setting it Empty returns default
-        testAgent.setEventType("");
-        assertEquals(DefaultEventType, testAgent.getEventType());
+        agentConfig.setEventType("");
+        assertEquals(DefaultEventType, agentConfig.getEventType());
 
         // Setting it to a value works
-        testAgent.setEventType("MyEventType");
-        assertEquals("MyEventType", testAgent.getEventType());
+        agentConfig.setEventType("MyEventType");
+        assertEquals("MyEventType", agentConfig.getEventType());
 
-        assertEquals("MyEventTypeQueue", testAgent.getEventType("Queue"));
-        testAgent.setVersion(1);
-        assertEquals("MyEventType", testAgent.getEventType("Queue"));
+        assertEquals("MyEventTypeQueue", agentConfig.getEventType("Queue"));
+        agentConfig.setVersion(1);
+        assertEquals("MyEventType", agentConfig.getEventType("Queue"));
     }
 }
