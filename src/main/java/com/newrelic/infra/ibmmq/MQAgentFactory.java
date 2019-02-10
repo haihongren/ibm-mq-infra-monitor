@@ -98,8 +98,7 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.addToQueueIgnores(globalQueueIgnores);
 		agentConfig.addToQueueIncludes(globalQueueIncludes);
 
-		MQAgent agent = new MQAgent(agentConfig);
-		agent.setDailyMaintenanceErrorScanTime(dailyMaintenanceErrorScanTime);
+		MQAgent agent = new MQAgent(agentConfig, dailyMaintenanceErrorScanTime);
 		return agent ;
 	}
 	
