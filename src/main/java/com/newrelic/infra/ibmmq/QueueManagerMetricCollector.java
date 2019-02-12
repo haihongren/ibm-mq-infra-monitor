@@ -8,6 +8,7 @@
  */
 package com.newrelic.infra.ibmmq;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.MQConstants;
+import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import com.newrelic.infra.publish.api.MetricReporter;
@@ -59,8 +61,12 @@ public class QueueManagerMetricCollector {
 						new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim()));
 				metricReporter.report(agentConfig.getEventType("SysObjectStatus"), metricset);
 			}
-		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for queue manager channel initiator.", e);
+		} catch (PCFException e) {
+			logger.error("Error getting system object status for queue manager channel initiator", e);
+		} catch (IOException e) {
+			logger.error("Error getting system object status for queue manager channel initiator", e);
+		} catch (Throwable e) {
+			logger.error("Error getting system object status for queue manager channel initiator", e);
 		}
 	}
 

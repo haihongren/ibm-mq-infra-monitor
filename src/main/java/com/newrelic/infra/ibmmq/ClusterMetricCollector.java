@@ -8,6 +8,7 @@
  */
 package com.newrelic.infra.ibmmq;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.MQConstants;
+import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
@@ -50,13 +52,17 @@ public class ClusterMetricCollector {
 
 				metricReporter.report(agentConfig.getEventType("SysObjectStatus"), metricset);
 			}
-		} catch (Exception e) {
-			if (e instanceof PCFException && ((PCFException) e).reasonCode == 2085) {
-				logger.debug("No cluster queue manager configured to check if suspended.");
+		} catch (PCFException e) {
+			if (e.reasonCode == 2085) {
+				logger.debug("No cluster queue manager configured to check if suspended");
 			} else {
-				logger.error("Problem getting system object status stats for cluster queue manager.", e);
+				logger.error("Problem getting system object status stats for cluster queue manager", e);
 			}
-		}
+		} catch (IOException e) {
+			logger.error("Problem getting system object status stats for cluster queue manager", e);
+		} catch (MQDataException e) {
+			logger.error("Problem getting system object status stats for cluster queue manager", e);
+		} 
 	}
 
 }

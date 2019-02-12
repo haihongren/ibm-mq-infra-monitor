@@ -8,6 +8,7 @@
  */
 package com.newrelic.infra.ibmmq;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -18,6 +19,8 @@ import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
+import com.ibm.mq.headers.MQDataException;
+import com.ibm.mq.headers.pcf.PCFException;
 import com.newrelic.infra.publish.api.MetricReporter;
 import com.newrelic.infra.publish.api.metrics.AttributeMetric;
 import com.newrelic.infra.publish.api.metrics.Metric;
@@ -60,8 +63,12 @@ public class ListenerMetricCollector {
 					metricReporter.report(agentConfig.getEventType("SysObjectStatus"), metricset);
 				}
 			}
-		} catch (Exception e) {
-			logger.error("Problem getting system object status stats for channel listener.", e);
+		} catch (PCFException e) {
+			logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
+		} catch (MQDataException e) {
+			logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
+		} catch (IOException e) {
+			logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
 		}
 	}
 

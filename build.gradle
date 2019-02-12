@@ -56,8 +56,8 @@ jar {
         }
     }
     manifest {
-        attributes "Main-Class": "com.newrelic.infra.ibmmq.MQRunnerMain",
-                    'Implementation-Title' : 'IBM-MQ-INFRA-MONITOR',
+        attributes "Main-Class": "com.newrelic.infra.ibmmq.Main",
+                    'Implementation-Title' : 'NewRelic monitor for IBM MQ',
                     'Implementation-Version' : version
 
     }

@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.CMQXC;
 import com.ibm.mq.constants.MQConstants;
+import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
@@ -166,13 +167,11 @@ public class ChannelMetricCollector {
 				}
 
 			} catch (PCFException e) {
-				logger.error("PCFException", e);
+				logger.error("Error fetching channel metrics", e);
 			} catch (IOException e) {
-				logger.error("IOException", e);
-			} catch (Throwable e) {
-				logger.error("IOException", e);
-			}
+				logger.error("Error fetching channel metrics", e);
+			} catch (MQDataException e) {
+				logger.error("Error fetching channel metrics", e);
+			} 
 		}
-
-
 }

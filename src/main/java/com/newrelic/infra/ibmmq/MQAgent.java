@@ -23,11 +23,11 @@ import com.newrelic.infra.publish.api.metrics.Metric;
 
 public class MQAgent extends Agent {
 	public static final int LATEST_VERSION = 2;
-	
 	public static final String DEFAULT_SERVER_HOST = "localhost";
-	public static final String DEFAULT_EVENT_TYPE = "IBMMQSample";
 	public static final int DEFAULT_SERVER_PORT = 1414;
 
+	public static final String DEFAULT_EVENT_TYPE = "IBMMQSample";
+	
 	private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
 
 	private AgentConfig agentConfig = null;
@@ -96,6 +96,7 @@ public class MQAgent extends Agent {
 			queueManagerMetricCollector.reportQueueManagerStatus(agent, metricReporter);
 			clusterMetricCollector.reportClusterQueueManagerSuspended(agent, metricReporter);
 			listenerMetricCollector.reportListenerStatus(agent, metricReporter);
+			//TODO collect topic metrics with MQCMD_INQUIRE_TOPIC_STATUS
 
 			if (agentConfig.reportEventMessages()) {
 				eventMetricCollector.reportEventStats(mqQueueManager, metricReporter);

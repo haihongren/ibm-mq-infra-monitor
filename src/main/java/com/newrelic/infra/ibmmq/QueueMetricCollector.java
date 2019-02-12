@@ -33,12 +33,14 @@ public class QueueMetricCollector {
 		this.agentConfig  = config;
 	}
 	
+	//TODO collect some metrics exposed by MQCMD_INQUIRE_Q_STATUS
+	
 	public void reportQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
 		try {
 			logger.debug("Getting queue metrics for queueManager: " + agent.getQManagerName().trim());
 
 			// Prepare PCF command to inquire queue status (status type) 
-			PCFMessage inquireQueue = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q); //MQCMD_INQUIRE_Q_STATUS
+			PCFMessage inquireQueue = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q); 
 
 			inquireQueue.addParameter(MQConstants.MQCA_Q_NAME, "*");
 			inquireQueue.addParameter(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_LOCAL);
@@ -65,7 +67,7 @@ public class QueueMetricCollector {
 				int maxDepth = response.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
 				int openInputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
 				int openOutputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
-				int qTyp = response.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
+				//int qTyp = response.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
 				
 				if (!isQueueIgnored(qName)) {
 					reportingCount++;
@@ -78,12 +80,12 @@ public class QueueMetricCollector {
 						metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
 						metricset.add(new AttributeMetric("qName", queueName));
 						metricset.add(new GaugeMetric("qDepth", currentDepth));
-						metricset.add(new GaugeMetric("maxDepth", maxDepth));
+						metricset.add(new GaugeMetric("qDepthMax", maxDepth));
 						metricset.add(new GaugeMetric("openInputCount", openInputCount));
 						metricset.add(new GaugeMetric("openOutputCount", openOutputCount));
 
 						if (maxDepth != 0) {
-							metricset.add(new GaugeMetric("percentQDepth", (currentDepth * 100 / maxDepth) ));
+							metricset.add(new GaugeMetric("qDepthPercent", (currentDepth * 100 / maxDepth) ));
 						}
 						metricMap.put(queueName, metricset);
 						logger.debug("[queue_name: {}, queue_depth: {}]", queueName, currentDepth);
