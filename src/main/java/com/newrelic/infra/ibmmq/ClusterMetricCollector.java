@@ -50,7 +50,7 @@ public class ClusterMetricCollector {
 				int suspended = res.getIntParameterValue(MQConstants.MQIACF_SUSPEND);
 				metricset.add(new AttributeMetric("status", suspended == MQConstants.MQSUS_YES ? "SUSPENDED" : ""));
 
-				metricReporter.report(agentConfig.getEventType("SysObjectStatus"), metricset);
+				metricReporter.report("MQObjectStatusSample", metricset);
 			}
 		} catch (PCFException e) {
 			if (e.reasonCode == 2085) {

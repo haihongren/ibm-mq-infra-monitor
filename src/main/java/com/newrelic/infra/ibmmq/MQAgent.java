@@ -90,7 +90,7 @@ public class MQAgent extends Agent {
 			queueMetricCollector.reportQueueStats(agent, metricReporter, metricMap);
 			queueMetricCollector.reportResetQueueStats(agent, metricReporter, metricMap);
 			for (Map.Entry<String, List<Metric>> entry : metricMap.entrySet()) {
-				metricReporter.report(agentConfig.getEventType("Queue"), entry.getValue());
+				metricReporter.report("MQQueueSample", entry.getValue());
 			}
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
 			queueManagerMetricCollector.reportQueueManagerStatus(agent, metricReporter);
@@ -146,7 +146,7 @@ public class MQAgent extends Agent {
 		metricset.add(new AttributeMetric("reasonQualifier", reasonQualifier));
 		metricset.add(new AttributeMetric("details", details));
 
-		metricReporter.report(agentConfig.getEventType("Event"), metricset);
+		metricReporter.report("MQEventSample", metricset);
 	}
 
 	// Often times a code lookup will result in a lengthy description like

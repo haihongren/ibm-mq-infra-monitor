@@ -52,7 +52,7 @@ public class LogMetricCollector {
 				metricset.add(new AttributeMetric("queueManager", mqQueueManager.getName()));
 				metricset.add(new AttributeMetric("reasonCode", "CHANNEL_OUT_OF_SYNC"));
 				metricset.add(new AttributeMetric("details", line));
-				metricReporter.report(agentConfig.getEventType("Event"), metricset);
+				metricReporter.report("MQEventSample", metricset);
 			}
 		} catch (IOException | MQException e) {
 			logger.error("Trouble searching " + filePath + " for errors.");
@@ -97,7 +97,7 @@ public class LogMetricCollector {
 							List<Metric> metricset = new LinkedList<>();
 							metricset.add(new AttributeMetric("queueManager", mqQueueManager.getName()));
 							metricset.add(new AttributeMetric("reasonCode", "COMPRESSING_ERROR"));
-							metricReporter.report(agentConfig.getEventType("Event"), metricset);
+							metricReporter.report("MQEventSample", metricset);
 
 							break;
 						}

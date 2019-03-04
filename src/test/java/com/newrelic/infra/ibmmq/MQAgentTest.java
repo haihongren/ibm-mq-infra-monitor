@@ -63,28 +63,4 @@ public class MQAgentTest {
     public void testSetServerChannelName() {
     }
 
-    @Test
-    public void testSetEventType() {
-        final String DefaultEventType = "IBMMQSample";
-        AgentConfig agentConfig = new AgentConfig();
-
-        // Assert the default comes through
-        assertEquals(DefaultEventType, agentConfig.getEventType());
-
-        // Setting it Null returns default
-        agentConfig.setEventType(null);
-        assertEquals(DefaultEventType, agentConfig.getEventType());
-
-        // Setting it Empty returns default
-        agentConfig.setEventType("");
-        assertEquals(DefaultEventType, agentConfig.getEventType());
-
-        // Setting it to a value works
-        agentConfig.setEventType("MyEventType");
-        assertEquals("MyEventType", agentConfig.getEventType());
-
-        assertEquals("MyEventTypeQueue", agentConfig.getEventType("Queue"));
-        agentConfig.setVersion(1);
-        assertEquals("MyEventType", agentConfig.getEventType("Queue"));
-    }
 }

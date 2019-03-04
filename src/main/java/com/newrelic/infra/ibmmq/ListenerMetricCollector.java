@@ -60,7 +60,7 @@ public class ListenerMetricCollector {
 							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
 					metricset.add(new AttributeMetric("name", name.trim()));
 
-					metricReporter.report(agentConfig.getEventType("SysObjectStatus"), metricset);
+					metricReporter.report("MQObjectStatusSample", metricset);
 				}
 			}
 		} catch (PCFException e) {

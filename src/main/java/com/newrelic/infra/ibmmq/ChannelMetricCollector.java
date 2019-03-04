@@ -163,7 +163,7 @@ public class ChannelMetricCollector {
 					logger.debug(
 							"[channel_name: {}, channel_status: {}, message_count: {}, bytes_sent: {}, bytes_rec: {}, buffers_sent: {}, buffers_rec: {}",
 							channelName, channelStatusStr, messages, bytesSent, bytesRec, buffersSent, buffersRec);
-					metricReporter.report(agentConfig.getEventType("Channel"), metricset, channelName);
+					metricReporter.report("MQChannelSample", metricset, channelName);
 				}
 
 			} catch (PCFException e) {

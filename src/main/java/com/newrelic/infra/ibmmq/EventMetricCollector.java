@@ -96,7 +96,7 @@ public class EventMetricCollector {
 					metricset.add(new AttributeMetric("reasonCode", MQConstants.lookupReasonCode(pcf.getReason())));
 					metricset.add(new AttributeMetric("reasonQualifier", tryGetPCFIntParam(pcf, MQConstants.MQIACF_REASON_QUALIFIER, "MQRQ_.*")));
 					metricset.add(new AttributeMetric("details", details));
-					metricReporter.report(agentConfig.getEventType("Event"), metricset);
+					metricReporter.report("MQEventSample", metricset);
 					
 					message.clearMessage();
 

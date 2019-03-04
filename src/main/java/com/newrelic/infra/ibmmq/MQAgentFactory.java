@@ -39,11 +39,10 @@ public class MQAgentFactory extends AgentFactory {
 		String password = (String) agentProperties.get("password");
 		String queueManager = (String) agentProperties.get("queueManager");
 		String channel = (String) agentProperties.get("channel");
-		String eventType = (String) agentProperties.get("eventType");
 		//We need to preserve JRE 1.6 compatibility for IBM MQ Monitor. 
 		//This is far easier than having our legacy customers install a compatible JRE 1.8 in their environments
 		//int version = (Integer) agentProperties.getOrDefault("version", MQAgent.LATEST_VERSION); 
-		int version = (int) getOrDefault(agentProperties, "version", MQAgent.LATEST_VERSION);
+		//int version = (int) getOrDefault(agentProperties, "version", MQAgent.LATEST_VERSION);
 		
 		//boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
 		boolean reportEventMessages = (Boolean) getOrDefault(agentProperties, "reportEventMessages", false);
@@ -85,10 +84,7 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.setServerAuthPassword(password);
 		agentConfig.setServerChannelName(channel);
 		agentConfig.setServerQueueManagerName(queueManager);
-		agentConfig.setEventType(eventType);
 		agentConfig.setReportEventMessages(reportEventMessages);
-		
-		agentConfig.setVersion(version);
 		agentConfig.setReportMaintenanceErrors(reportMaintenanceErrors);
 		agentConfig.setMqToolsLogPath(mqToolsLogPath);
 		agentConfig.setMonitorErrorLogs(monitorErrorLogs);

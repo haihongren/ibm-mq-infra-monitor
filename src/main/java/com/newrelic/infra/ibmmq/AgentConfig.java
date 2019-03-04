@@ -21,7 +21,6 @@ public class AgentConfig {
 	private String serverAuthPassword = StringUtils.EMPTY;
 	private String serverChannelName = "SYSTEM.DEF.SVRCONN";
 	private String serverQueueManagerName = null;
-	private String eventType = MQAgent.DEFAULT_EVENT_TYPE;
 	List<Pattern> queueIgnores = new ArrayList<>();
 	List<Pattern> queueIncludes = new ArrayList<>();
 
@@ -32,8 +31,6 @@ public class AgentConfig {
 	private String mqToolsLogPath;
 	private String errorLogPath;
 	private String agentTempPath;
-	
-	private int version = MQAgent.LATEST_VERSION;
 
 	public String getErrorLogPath() {
 		return errorLogPath;
@@ -94,34 +91,13 @@ public class AgentConfig {
 	public String getServerQueueManagerName() {
 		return serverQueueManagerName;
 	}
-
-	public void setEventType(String eventType) {
-		this.eventType = StringUtils.isNotBlank(eventType) ? eventType : MQAgent.DEFAULT_EVENT_TYPE;
-
-	}
-
-	public String getEventType() {
-		return getEventType("");
-	}
-
-	public String getEventType(String subType) {
-		if (version > 1 || !(subType.equals("Channel") || subType.equals("Queue")))
-			return this.eventType + subType;
-		else
-			return this.eventType;
-	}
-
+	
 	public void setReportEventMessages(boolean reportEventMessages) {
 		this.reportEventMessages = reportEventMessages;
 	}
 
 	public void setReportMaintenanceErrors(boolean reportMaintenanceErrors) {
 		this.reportMaintenanceErrors = reportMaintenanceErrors;
-	}
-	
-
-	public void setVersion(int version) {
-		this.version = version;
 	}
 
 	public void setMqToolsLogPath(String mqToolsLogPath) {
