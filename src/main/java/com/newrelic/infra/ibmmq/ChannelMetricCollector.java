@@ -70,27 +70,27 @@ public class ChannelMetricCollector {
 		channelTypeMap = Collections.unmodifiableMap(mChannelType);
 		
 		Map<Integer, String> mChannelSubState = new HashMap<>();
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_CHADEXIT, "CHADEXIT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_COMPRESSING, "COMPRESSING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_END_OF_BATCH, "END_OF_BATCH");
-		mChannelType.put(CMQCFC.MQCHSSTATE_SSL_HANDSHAKING, "HANDSHAKING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_HEARTBEATING, "HEARTBEATING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MQGET, "IN_MQGET");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MQI_CALL, "IN_MQI_CALL");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MQPUT, "IN_MQPUT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MREXIT, "MREXIT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MSGEXIT, "MSGEXIT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_NAME_SERVER, "NAME_SERVER");
-		mChannelType.put(CMQCFC.MQCHSSTATE_NET_CONNECTING, "NET_CONNECTING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_OTHER, "OTHER");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_CHADEXIT, "CHADEXIT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_COMPRESSING, "COMPRESSING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_END_OF_BATCH, "END_OF_BATCH");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_SSL_HANDSHAKING, "HANDSHAKING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_HEARTBEATING, "HEARTBEATING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_MQGET, "IN_MQGET");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_MQI_CALL, "IN_MQI_CALL");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_MQPUT, "IN_MQPUT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_MREXIT, "MREXIT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_MSGEXIT, "MSGEXIT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_NAME_SERVER, "NAME_SERVER");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_NET_CONNECTING, "NET_CONNECTING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_OTHER, "OTHER");
 		
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_RCVEXIT, "RCVEXIT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_RECEIVING, "RECEIVING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_RESYNCHING, "RESYNCHING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_SCYEXIT, "SCYEXIT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_IN_SENDEXIT, "SENDEXIT");
-		mChannelType.put(CMQCFC.MQCHSSTATE_SENDING, "SENDING");
-		mChannelType.put(CMQCFC.MQCHSSTATE_SERIALIZING, "SERIALIZING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_RCVEXIT, "RCVEXIT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_RECEIVING, "RECEIVING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_RESYNCHING, "RESYNCHING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_SCYEXIT, "SCYEXIT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_IN_SENDEXIT, "SENDEXIT");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_SENDING, "SENDING");
+		mChannelSubState.put(CMQCFC.MQCHSSTATE_SERIALIZING, "SERIALIZING");
 
 		channelSubStateMap = Collections.unmodifiableMap(mChannelSubState);
 	}
@@ -193,14 +193,18 @@ public class ChannelMetricCollector {
 					metricset.add(new RateMetric("bufferRecRate", buffersRec));
 					
 					String channelSubStateStr = channelSubStateMap.get(subState);
-					metricset.add(new AttributeMetric("channelSubState",
-							StringUtils.isBlank(channelSubStateStr) ? "UNKNOWN" : channelSubStateStr));
+					if (channelSubStateStr == null) {
+						metricset.add(new AttributeMetric("channelSubState", "UNKNOWN"));
+					} else {
+						metricset.add(new AttributeMetric("channelSubState", channelSubStateStr));
+					}
+
 					metricset.add(new AttributeMetric("channelStartDate", channelStartDate));
 					metricset.add(new AttributeMetric("channelStartTime", channelStartTime));
 
 					logger.debug(
-							"[channel_name: {}, channel_status: {}, message_count: {}, bytes_sent: {}, bytes_rec: {}, buffers_sent: {}, buffers_rec: {}",
-							channelName, channelStatusStr, messages, bytesSent, bytesRec, buffersSent, buffersRec);
+							"[channel_name: {}, channel_status: {}, channel_sub_state: {},message_count: {}, bytes_sent: {}, bytes_rec: {}, buffers_sent: {}, buffers_rec: {}",
+							channelName, channelStatusStr, channelSubStateStr, messages, bytesSent, bytesRec, buffersSent, buffersRec);
 					metricReporter.report("MQChannelSample", metricset, channelName);
 				}
 
