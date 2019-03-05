@@ -74,10 +74,11 @@ public class QueueMetricCollector {
 					if (qName != null) {
 						String queueName = qName.trim();
 						List<Metric> metricset = new LinkedList<Metric>();
-						metricset.add(new AttributeMetric("provider", "IBM"));
-						metricset.add(new AttributeMetric("entity", "queue"));
+						metricset.add(new AttributeMetric("provider", "ibm"));
 						metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
 						metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+						
+						metricset.add(new AttributeMetric("object", "queue"));
 						metricset.add(new AttributeMetric("qName", queueName));
 						metricset.add(new GaugeMetric("qDepth", currentDepth));
 						metricset.add(new GaugeMetric("qDepthMax", maxDepth));

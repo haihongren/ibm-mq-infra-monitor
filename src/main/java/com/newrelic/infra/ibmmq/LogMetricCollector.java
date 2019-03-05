@@ -49,6 +49,11 @@ public class LogMetricCollector {
 			String line = log.findSearchValueLine();
 			if (line != null) {
 				List<Metric> metricset = new LinkedList<>();
+				metricset.add(new AttributeMetric("provider", "ibm"));
+				metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
+				metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+				
+				metricset.add(new AttributeMetric("object", "log"));
 				metricset.add(new AttributeMetric("queueManager", mqQueueManager.getName()));
 				metricset.add(new AttributeMetric("reasonCode", "CHANNEL_OUT_OF_SYNC"));
 				metricset.add(new AttributeMetric("details", line));

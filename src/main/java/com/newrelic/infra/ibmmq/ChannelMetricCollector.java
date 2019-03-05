@@ -130,11 +130,11 @@ public class ChannelMetricCollector {
 					}
 
 					List<Metric> metricset = new LinkedList<Metric>();
-					metricset.add(new AttributeMetric("provider", "ibmMQ"));
-					metricset.add(new AttributeMetric("entity", "channel"));
-
+					metricset.add(new AttributeMetric("provider", "ibm"));
 					metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
 					metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+
+					metricset.add(new AttributeMetric("object", "channel"));
 					metricset.add(new AttributeMetric("channelName", channelName));
 
 					String channelTypeStr = channelTypeMap.get(chType);

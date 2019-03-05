@@ -90,6 +90,11 @@ public class EventMetricCollector {
 					String details = b.length() > 0 ? b.substring(0, b.length() - 1) : "";
 
 					List<Metric> metricset = new LinkedList<>();
+					metricset.add(new AttributeMetric("provider", "ibm"));
+					metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
+					metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+					
+					metricset.add(new AttributeMetric("object", "event"));
 					metricset.add(new AttributeMetric("putTime", dateTimeFormat.format(message.putDateTime.getTime())));
 					metricset.add(new AttributeMetric("eventQueue", queueName));
 					metricset.add(new AttributeMetric("queueManager", pcf.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim()));

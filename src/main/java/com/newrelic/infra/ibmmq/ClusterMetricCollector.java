@@ -44,6 +44,10 @@ public class ClusterMetricCollector {
 			PCFMessage[] responses = agent.send(req);
 			for (PCFMessage res : responses) {
 				List<Metric> metricset = new LinkedList<>();
+				metricset.add(new AttributeMetric("provider", "ibm"));
+				metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
+				metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+				
 				metricset.add(new AttributeMetric("object", "ClusterQueueManager"));
 				metricset.add(new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME)));
 
