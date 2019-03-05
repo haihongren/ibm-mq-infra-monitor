@@ -80,6 +80,11 @@ task copyScripts(type: Copy) {
     into "$distsDir"
 }
 
+task copyDashboards(type: Copy) {
+    from 'dashboards'
+    into "$distsDir/dashboards"
+}
+
 task copyReadMe(type: Copy) {
     from projectDir
     into "$distsDir"
@@ -111,6 +116,7 @@ build.dependsOn "copyToConfig"
 build.dependsOn "copyScripts"
 build.dependsOn "copyReadMe"
 build.dependsOn "createPackage"
+build.dependsOn "copyDashboards"
 
 // Findbugs is responsible for static analysis of Java code for common mistakes and risks
 // See: https://docs.gradle.org/current/dsl/org.gradle.api.plugins.quality.FindBugsExtension.html
