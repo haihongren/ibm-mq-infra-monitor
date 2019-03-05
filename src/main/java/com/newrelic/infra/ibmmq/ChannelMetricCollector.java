@@ -38,6 +38,7 @@ public class ChannelMetricCollector {
 	
 	private static final Map<Integer, String> channelTypeMap;
 	private static final Map<Integer, String> channelStatusMap;
+	private static final Map<Integer, String> channelSubStateMap;
 
 	static {
 		Map<Integer, String> sChannelStatus = new HashMap<>();
@@ -67,6 +68,31 @@ public class ChannelMetricCollector {
 		mChannelType.put(CMQXC.MQCHT_ALL, "ALL");
 
 		channelTypeMap = Collections.unmodifiableMap(mChannelType);
+		
+		Map<Integer, String> mChannelSubState = new HashMap<>();
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_CHADEXIT, "CHADEXIT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_COMPRESSING, "COMPRESSING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_END_OF_BATCH, "END_OF_BATCH");
+		mChannelType.put(CMQCFC.MQCHSSTATE_SSL_HANDSHAKING, "HANDSHAKING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_HEARTBEATING, "HEARTBEATING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MQGET, "IN_MQGET");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MQI_CALL, "IN_MQI_CALL");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MQPUT, "IN_MQPUT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MREXIT, "MREXIT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_MSGEXIT, "MSGEXIT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_NAME_SERVER, "NAME_SERVER");
+		mChannelType.put(CMQCFC.MQCHSSTATE_NET_CONNECTING, "NET_CONNECTING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_OTHER, "OTHER");
+		
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_RCVEXIT, "RCVEXIT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_RECEIVING, "RECEIVING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_RESYNCHING, "RESYNCHING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_SCYEXIT, "SCYEXIT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_IN_SENDEXIT, "SENDEXIT");
+		mChannelType.put(CMQCFC.MQCHSSTATE_SENDING, "SENDING");
+		mChannelType.put(CMQCFC.MQCHSSTATE_SERIALIZING, "SERIALIZING");
+
+		channelSubStateMap = Collections.unmodifiableMap(mChannelSubState);
 	}
 	
 	private AgentConfig agentConfig = null;
@@ -79,7 +105,8 @@ public class ChannelMetricCollector {
 			int[] attrs = { MQConstants.MQCACH_CHANNEL_NAME, MQConstants.MQCACH_CONNECTION_NAME,
 					MQConstants.MQIACH_CHANNEL_STATUS, MQConstants.MQIACH_MSGS, MQConstants.MQIACH_BYTES_SENT,
 					MQConstants.MQIACH_BYTES_RECEIVED, MQConstants.MQIACH_BUFFERS_SENT, MQConstants.MQIACH_BUFFERS_RECEIVED,
-					MQConstants.MQIACH_INDOUBT_STATUS };
+					MQConstants.MQIACH_INDOUBT_STATUS, MQConstants.MQIACH_CHANNEL_SUBSTATE,  MQConstants.MQCACH_CHANNEL_START_DATE, 
+					MQConstants.MQCACH_CHANNEL_START_TIME};
 			try {
 				logger.debug("Getting channel metrics for queueManager: ", agentConfig.getServerQueueManagerName().trim());
 
@@ -128,6 +155,11 @@ public class ChannelMetricCollector {
 					if (channelTypeObj != null && channelTypeObj instanceof Integer) {
 						chType = ((Integer) channelTypeObj).intValue();
 					}
+					
+					int subState = msg.getIntParameterValue(MQConstants.MQIACH_CHANNEL_SUBSTATE);
+					String channelStartDate = msg.getStringParameterValue(MQConstants.MQCACH_CHANNEL_START_DATE);
+					String channelStartTime = msg.getStringParameterValue(MQConstants.MQCACH_CHANNEL_START_TIME);
+					
 
 					List<Metric> metricset = new LinkedList<Metric>();
 					metricset.add(new AttributeMetric("provider", "ibm"));
@@ -159,6 +191,12 @@ public class ChannelMetricCollector {
 					metricset.add(new RateMetric("buffersSentRate", buffersSent));
 					metricset.add(new GaugeMetric("bufferRecCount", buffersRec));
 					metricset.add(new RateMetric("bufferRecRate", buffersRec));
+					
+					String channelSubStateStr = channelSubStateMap.get(subState);
+					metricset.add(new AttributeMetric("channelSubState",
+							StringUtils.isBlank(channelSubStateStr) ? "UNKNOWN" : channelSubStateStr));
+					metricset.add(new AttributeMetric("channelStartDate", channelStartDate));
+					metricset.add(new AttributeMetric("channelStartTime", channelStartTime));
 
 					logger.debug(
 							"[channel_name: {}, channel_status: {}, message_count: {}, bytes_sent: {}, bytes_rec: {}, buffers_sent: {}, buffers_rec: {}",
