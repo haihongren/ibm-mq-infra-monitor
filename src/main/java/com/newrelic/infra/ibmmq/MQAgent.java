@@ -14,11 +14,13 @@ import com.ibm.mq.MQEnvironment;
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.MQConstants;
+import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import com.newrelic.infra.publish.api.Agent;
 import com.newrelic.infra.publish.api.InventoryReporter;
 import com.newrelic.infra.publish.api.MetricReporter;
 import com.newrelic.infra.publish.api.metrics.AttributeMetric;
+import com.newrelic.infra.publish.api.metrics.GaugeMetric;
 import com.newrelic.infra.publish.api.metrics.Metric;
 
 public class MQAgent extends Agent {
@@ -70,32 +72,43 @@ public class MQAgent extends Agent {
 		try {
 			try {
 				mqQueueManager = connect();
-			} catch (Exception e) {
-				reportEventMetric(new Date(), null, agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", null,
-						e.getMessage(), metricReporter);
+			}  catch (MQException e) {
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", e.reasonCode, metricReporter);
 				logger.error("Problem creating MQQueueManager", e);
+				return;
+			} catch (Throwable t) {
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", 0, metricReporter);
+				reportEventMetric(new Date(), null, agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", null, t.getMessage(), metricReporter);
+				logger.error("Problem creating MQQueueManager", t);
 				return;
 			}
 			try {
 				agent = new PCFMessageAgent(mqQueueManager);
 				agent.connect(mqQueueManager);
-			} catch (Exception e) {
-				reportEventMetric(new Date(), null, agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", null,
-						e.getMessage(), metricReporter);
-				logger.error("Problem creating PCFMessageAgent", e);
+			} catch (PCFException e) {
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", e.reasonCode, metricReporter);
+				logger.info(e.getMessage());
+				return;
+			} catch (Throwable t) {
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", 0, metricReporter);
+				reportEventMetric(new Date(), null, agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", null, t.getMessage(), metricReporter);
+				logger.error("Problem creating PCFMessageAgent", t);
 				return;
 			}
 
+			queueManagerMetricCollector.reportQueueManagerStatus(agent, metricReporter);
+			clusterMetricCollector.reportClusterQueueManagerSuspended(agent, metricReporter);
+			listenerMetricCollector.reportListenerStatus(agent, metricReporter);
+			
 			Map<String, List<Metric>> metricMap = new HashMap<>();
 			queueMetricCollector.reportQueueStats(agent, metricReporter, metricMap);
 			queueMetricCollector.reportResetQueueStats(agent, metricReporter, metricMap);
 			for (Map.Entry<String, List<Metric>> entry : metricMap.entrySet()) {
 				metricReporter.report("MQQueueSample", entry.getValue());
 			}
+			
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
-			queueManagerMetricCollector.reportQueueManagerStatus(agent, metricReporter);
-			clusterMetricCollector.reportClusterQueueManagerSuspended(agent, metricReporter);
-			listenerMetricCollector.reportListenerStatus(agent, metricReporter);
+
 			//TODO collect topic metrics with MQCMD_INQUIRE_TOPIC_STATUS
 
 			if (agentConfig.reportEventMessages()) {
@@ -121,7 +134,7 @@ public class MQAgent extends Agent {
 	}
 
 	@SuppressWarnings("unchecked")
-	private MQQueueManager connect() throws MQException {
+	private MQQueueManager connect() throws MQException  {
 		MQEnvironment.hostname = agentConfig.getServerHost();
 		MQEnvironment.port = agentConfig.getServerPort();
 		MQEnvironment.userID = agentConfig.getServerAuthUser();
@@ -155,6 +168,22 @@ public class MQAgent extends Agent {
 		String desc = MQConstants.lookup(code, filter);
 		int index = desc.lastIndexOf('/');
 		return index == -1 ? desc : desc.substring(index + 1);
+	}
+	
+	private void reportQueueManagerHostNotResponding(String queueManagerName, String errormessage, int reasoncode, MetricReporter metricReporter) {
+		List<Metric> metricset = new LinkedList<>();
+		metricset.add(new AttributeMetric("provider", "ibm"));
+		metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
+		metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+		
+		metricset.add(new AttributeMetric("object", "QueueManager"));
+		metricset.add(new AttributeMetric("channelInitStatus", errormessage));
+		metricset.add(new AttributeMetric("commandServerStatus", errormessage));
+		metricset.add(new AttributeMetric("status", errormessage));
+		metricset.add(new AttributeMetric("reason", reasoncode));
+		metricset.add(
+				new AttributeMetric("name", queueManagerName));
+		metricReporter.report("MQObjectStatusSample", metricset);
 	}
 
 }
