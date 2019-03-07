@@ -20,7 +20,6 @@ import com.newrelic.infra.publish.api.Agent;
 import com.newrelic.infra.publish.api.InventoryReporter;
 import com.newrelic.infra.publish.api.MetricReporter;
 import com.newrelic.infra.publish.api.metrics.AttributeMetric;
-import com.newrelic.infra.publish.api.metrics.GaugeMetric;
 import com.newrelic.infra.publish.api.metrics.Metric;
 
 public class MQAgent extends Agent {
@@ -77,8 +76,7 @@ public class MQAgent extends Agent {
 				logger.error("Problem creating MQQueueManager", e);
 				return;
 			} catch (Throwable t) {
-				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", 0, metricReporter);
-				reportEventMetric(new Date(), null, agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", null, t.getMessage(), metricReporter);
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_NOT_AVAILABLE", 1 , metricReporter);
 				logger.error("Problem creating MQQueueManager", t);
 				return;
 			}
@@ -86,12 +84,15 @@ public class MQAgent extends Agent {
 				agent = new PCFMessageAgent(mqQueueManager);
 				agent.connect(mqQueueManager);
 			} catch (PCFException e) {
-				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", e.reasonCode, metricReporter);
-				logger.info(e.getMessage());
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_CONNECT_ERROR", e.reasonCode, metricReporter);
+				logger.error("Problem creating PCFMessageAgent", e);
+				return;
+			} catch (com.ibm.mq.headers.MQExceptionWrapper e) {
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_CONNECT_ERROR", e.reasonCode, metricReporter);
+				logger.error("Problem creating PCFMessageAgent", e);
 				return;
 			} catch (Throwable t) {
-				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", 0, metricReporter);
-				reportEventMetric(new Date(), null, agentConfig.getServerQueueManagerName(), "COMMAND_SERVER_NOT_RESPONDING", null, t.getMessage(), metricReporter);
+				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_CONNECT_ERROR", 1, metricReporter);
 				logger.error("Problem creating PCFMessageAgent", t);
 				return;
 			}
@@ -147,21 +148,6 @@ public class MQAgent extends Agent {
 		return qMgr;
 	}
 
-	//TODO get rid of this method
-	private void reportEventMetric(Date dateTime, String eventQueueName, String queueManager, String reason,
-			String reasonQualifier, String details, MetricReporter metricReporter) {
-		List<Metric> metricset = new LinkedList<>();
-
-		metricset.add(new AttributeMetric("putTime", dateTimeFormat.format(dateTime)));
-		metricset.add(new AttributeMetric("eventQueue", eventQueueName));
-		metricset.add(new AttributeMetric("queueManager", queueManager));
-		metricset.add(new AttributeMetric("reasonCode", reason));
-		metricset.add(new AttributeMetric("reasonQualifier", reasonQualifier));
-		metricset.add(new AttributeMetric("details", details));
-
-		metricReporter.report("MQEventSample", metricset);
-	}
-
 	// Often times a code lookup will result in a lengthy description like
 	// abc/xyz/someValue and we just want someValue.
 	public static String friendlyCodeLookup(int code, String filter) {
@@ -180,7 +166,7 @@ public class MQAgent extends Agent {
 		metricset.add(new AttributeMetric("channelInitStatus", errormessage));
 		metricset.add(new AttributeMetric("commandServerStatus", errormessage));
 		metricset.add(new AttributeMetric("status", errormessage));
-		metricset.add(new AttributeMetric("reason", reasoncode));
+		metricset.add(new AttributeMetric("error", reasoncode));
 		metricset.add(
 				new AttributeMetric("name", queueManagerName));
 		metricReporter.report("MQObjectStatusSample", metricset);

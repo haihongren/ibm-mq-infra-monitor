@@ -63,6 +63,7 @@ public class QueueManagerMetricCollector {
 						MQAgent.friendlyCodeLookup(res.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS), "MQQMSTA_.*")));
 				metricset.add(
 						new AttributeMetric("name", res.getStringParameterValue(MQConstants.MQCA_Q_MGR_NAME).trim()));
+				metricset.add(new AttributeMetric("error", 0));
 				metricReporter.report("MQObjectStatusSample", metricset);
 			}
 		} catch (PCFException e) {
