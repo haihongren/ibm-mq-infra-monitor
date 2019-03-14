@@ -46,7 +46,9 @@ public class MQAgentFactory extends AgentFactory {
 		
 		//boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
 		boolean reportEventMessages = (Boolean) getOrDefault(agentProperties, "reportEventMessages", false);
-		
+		boolean reportQueueStatus =  (Boolean) getOrDefault(agentProperties, "reportQueueStatus", false);
+
+
 		//boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", false);
 		boolean reportMaintenanceErrors = (Boolean) getOrDefault(agentProperties, "reportMaintenanceErrors", false);
 		
@@ -90,6 +92,7 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.setMonitorErrorLogs(monitorErrorLogs);
 		agentConfig.setErrorLogPath(errorLogPath);
 		agentConfig.setAgentTempPath(agentTempPath);
+		agentConfig.setReportQueueStatus(reportQueueStatus);
 
 		agentConfig.addToQueueIgnores(globalQueueIgnores);
 		agentConfig.addToQueueIncludes(globalQueueIncludes);

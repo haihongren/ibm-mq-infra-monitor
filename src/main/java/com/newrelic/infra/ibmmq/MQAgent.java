@@ -1,12 +1,14 @@
 package com.newrelic.infra.ibmmq;
 
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import com.newrelic.infra.ibmmq.constants.EventConstants;
+import com.newrelic.infra.ibmmq.constants.ObjectStatusSampleConstants;
+import com.newrelic.infra.ibmmq.constants.QueueSampleConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,12 +25,9 @@ import com.newrelic.infra.publish.api.metrics.AttributeMetric;
 import com.newrelic.infra.publish.api.metrics.Metric;
 
 public class MQAgent extends Agent {
-	public static final int LATEST_VERSION = 2;
 	public static final String DEFAULT_SERVER_HOST = "localhost";
 	public static final int DEFAULT_SERVER_PORT = 1414;
 
-	public static final String DEFAULT_EVENT_TYPE = "IBMMQSample";
-	
 	private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
 
 	private AgentConfig agentConfig = null;
@@ -104,8 +103,13 @@ public class MQAgent extends Agent {
 			Map<String, List<Metric>> metricMap = new HashMap<>();
 			queueMetricCollector.reportQueueStats(agent, metricReporter, metricMap);
 			queueMetricCollector.reportResetQueueStats(agent, metricReporter, metricMap);
+
+            if (agentConfig.reportQueueStatus()) {
+                queueMetricCollector.reportQueueStatusStats(agent, metricReporter, metricMap);
+            }
+
 			for (Map.Entry<String, List<Metric>> entry : metricMap.entrySet()) {
-				metricReporter.report("MQQueueSample", entry.getValue());
+				metricReporter.report(QueueSampleConstants.MQ_QUEUE_SAMPLE, entry.getValue());
 			}
 			
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
@@ -158,18 +162,17 @@ public class MQAgent extends Agent {
 	
 	private void reportQueueManagerHostNotResponding(String queueManagerName, String errormessage, int reasoncode, MetricReporter metricReporter) {
 		List<Metric> metricset = new LinkedList<>();
-		metricset.add(new AttributeMetric("provider", "ibm"));
-		metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
-		metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
+        metricset.add(new AttributeMetric(EventConstants.PROVIDER, EventConstants.IBM_PROVIDER));
+        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_NAME, agentConfig.getServerQueueManagerName()));
+        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_HOST, agentConfig.getServerHost()));
 		
-		metricset.add(new AttributeMetric("object", "QueueManager"));
-		metricset.add(new AttributeMetric("channelInitStatus", errormessage));
-		metricset.add(new AttributeMetric("commandServerStatus", errormessage));
-		metricset.add(new AttributeMetric("status", errormessage));
-		metricset.add(new AttributeMetric("error", reasoncode));
-		metricset.add(
-				new AttributeMetric("name", queueManagerName));
-		metricReporter.report("MQObjectStatusSample", metricset);
+		metricset.add(new AttributeMetric(EventConstants.OBJECT_ATTRIBUTE, EventConstants.OBJ_ATTR_TYPE_Q_MGR));
+		metricset.add(new AttributeMetric(ObjectStatusSampleConstants.CHNL_INIT_STATUS, errormessage));
+		metricset.add(new AttributeMetric(ObjectStatusSampleConstants.CMD_SERVER_STATUS, errormessage));
+		metricset.add(new AttributeMetric(EventConstants.STATUS, errormessage));
+		metricset.add(new AttributeMetric(EventConstants.ERROR, reasoncode));
+		metricset.add(new AttributeMetric(EventConstants.NAME, queueManagerName));
+		metricReporter.report(ObjectStatusSampleConstants.MQ_OBJECT_STATUS_SAMPLE, metricset);
 	}
 
 }
