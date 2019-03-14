@@ -62,7 +62,7 @@ The "agents" object contains an array of “agent” objects. Each “agent” o
 * "password" – password used to connection (optional if not needed)
 * "reportEventMessages" - true to report MQ Event messages.
 * "reportMaintenanceErrors" - true to report errors with MQ Tools daily maintenance processes.
-* "reporQueueEventStatus" - true to report MQ Queue status
+* "reportQueueStatus" - true to report MQ Queue status
 * "dailyMaintenanceErrorScanTime" - HH:MM to scan for maintenance errors each day.  This should be a time shortly after the daily maintenance processes run.
 * "mqToolsLogPath" - The logPath to the MQ Tools logs. Ex: /var/mqm/mqtools_log.
 * "monitorErrorLogs" - true to gather select metrics from the queue manager error logs.
