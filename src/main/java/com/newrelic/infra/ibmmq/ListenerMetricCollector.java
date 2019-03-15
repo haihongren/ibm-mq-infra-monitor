@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.newrelic.infra.ibmmq.constants.EventConstants;
+import com.newrelic.infra.ibmmq.constants.ObjectStatusSampleConstants;
+import io.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,22 +54,34 @@ public class ListenerMetricCollector {
 				PCFMessage statusReq = new PCFMessage(CMQCFC.MQCMD_INQUIRE_LISTENER_STATUS);
 				statusReq.addParameter(MQConstants.MQCACH_LISTENER_NAME,
 						listenerRes.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME));
+                try{
+                    PCFMessage[] statusResponses = agent.send(statusReq);
+                    for (PCFMessage statusRes : statusResponses) {
+                        List<Metric> metricset = new LinkedList<>();
 
-				PCFMessage[] statusResponses = agent.send(statusReq);
-				for (PCFMessage statusRes : statusResponses) {
-					List<Metric> metricset = new LinkedList<>();
+                        metricset.add(new AttributeMetric(EventConstants.PROVIDER, EventConstants.IBM_PROVIDER));
+                        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_NAME, agentConfig.getServerQueueManagerName()));
+                        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_HOST, agentConfig.getServerHost()));
 
-					metricset.add(new AttributeMetric("provider", "ibm"));
-					metricset.add(new AttributeMetric("qManagerName", agentConfig.getServerQueueManagerName()));
-					metricset.add(new AttributeMetric("qManagerHost", agentConfig.getServerHost()));
-					
-					metricset.add(new AttributeMetric("object", "Listener"));
-					metricset.add(new AttributeMetric("status", MQAgent.friendlyCodeLookup(
-							statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
-					metricset.add(new AttributeMetric("name", name.trim()));
+                        metricset.add(new AttributeMetric(EventConstants.OBJECT_ATTRIBUTE, EventConstants.OBJ_ATTR_TYPE_Q_LISTENER));
+                        metricset.add(new AttributeMetric(EventConstants.ERROR, StringUtil.EMPTY_STRING));
+                        metricset.add(new AttributeMetric(EventConstants.STATUS, MQAgent.friendlyCodeLookup(
+                                statusRes.getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS), "MQSVC_.*")));
+                        metricset.add(new AttributeMetric(EventConstants.NAME, name.trim()));
 
-					metricReporter.report("MQObjectStatusSample", metricset);
-				}
+                        metricReporter.report("MQObjectStatusSample", metricset);
+                    }
+                } catch (PCFException e) {
+                    logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
+                    reportException(agentConfig.getServerQueueManagerName(), name ,  e.getMessage(), e.reasonCode, metricReporter);
+                } catch (MQDataException e) {
+                    logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
+                    reportException(agentConfig.getServerQueueManagerName(), name ,  e.getMessage(), e.reasonCode, metricReporter);
+                } catch (IOException e) {
+                    logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
+                    reportException(agentConfig.getServerQueueManagerName(), name ,  e.getMessage(), 1, metricReporter);
+                }
+
 			}
 		} catch (PCFException e) {
 			logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
@@ -76,5 +91,19 @@ public class ListenerMetricCollector {
 			logger.error("Error fetching listener status for " + agentConfig.getServerQueueManagerName(), e);
 		}
 	}
+
+    private void reportException(String queueManagerName, String listernName,  String errormessage, int reasoncode, MetricReporter metricReporter) {
+        List<Metric> metricset = new LinkedList<>();
+
+        metricset.add(new AttributeMetric(EventConstants.PROVIDER, EventConstants.IBM_PROVIDER));
+        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_NAME, agentConfig.getServerQueueManagerName()));
+        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_HOST, agentConfig.getServerHost()));
+
+        metricset.add(new AttributeMetric(EventConstants.OBJECT_ATTRIBUTE, EventConstants.OBJ_ATTR_TYPE_Q_LISTENER));
+        metricset.add(new AttributeMetric(EventConstants.STATUS, errormessage));
+        metricset.add(new AttributeMetric(EventConstants.ERROR,reasoncode));
+        metricset.add(new AttributeMetric(EventConstants.NAME, listernName.trim()));
+        metricReporter.report(ObjectStatusSampleConstants.MQ_OBJECT_STATUS_SAMPLE, metricset);
+    }
 
 }
