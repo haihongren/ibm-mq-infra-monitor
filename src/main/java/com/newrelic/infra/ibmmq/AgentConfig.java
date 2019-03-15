@@ -23,12 +23,15 @@ public class AgentConfig {
 	private String serverQueueManagerName = null;
 	List<Pattern> queueIgnores = new ArrayList<>();
 	List<Pattern> queueIncludes = new ArrayList<>();
+	List<Pattern> topicIgnores = new ArrayList<>();
+	List<Pattern> topicIncludes = new ArrayList<>();
 
 	private boolean reportEventMessages = false;
 	private boolean reportMaintenanceErrors = false;
 	private boolean monitorErrorLogs;
 
 	private boolean reportQueueStatus = false;
+	private boolean reportTopicStatus = false;
 	
 	private String mqToolsLogPath;
 	private String errorLogPath;
@@ -101,6 +104,10 @@ public class AgentConfig {
 	public void setReportQueueStatus(boolean reportQueueStatus){
         this.reportQueueStatus = reportQueueStatus;
     }
+	
+	public void setReportTopicStatus(boolean reportTopicStatus){
+        this.reportTopicStatus = reportTopicStatus;
+    }
 
 	public void setReportMaintenanceErrors(boolean reportMaintenanceErrors) {
 		this.reportMaintenanceErrors = reportMaintenanceErrors;
@@ -135,6 +142,14 @@ public class AgentConfig {
 		addPatternsToList(adds, queueIncludes);
 	}
 	
+	public void addToTopicIgnores(List<String> adds) {
+		addPatternsToList(adds, topicIgnores);
+	}
+
+	public void addToTopicIncludes(List<String> adds) {
+		addPatternsToList(adds, topicIncludes);
+	}
+	
 	private void addPatternsToList(List<String> adds, List<Pattern> list) {
 		for (String s : adds) {
 			Pattern pattern = Pattern.compile(s.trim(), Pattern.CASE_INSENSITIVE);
@@ -149,7 +164,11 @@ public class AgentConfig {
     public boolean reportQueueStatus() {
         return reportQueueStatus;
     }
-
+    
+    public boolean reportTopicStatus() {
+        return reportTopicStatus;
+    }
+    
     public boolean reportMaintenanceErrors() {
 		return reportMaintenanceErrors;
 	}

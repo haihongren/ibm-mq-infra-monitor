@@ -11,28 +11,21 @@ package com.newrelic.infra.ibmmq;
 import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.newrelic.infra.ibmmq.constants.EventConstants;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.mq.constants.CMQCFC;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.pcf.PCFMessage;
-import com.ibm.mq.headers.pcf.PCFParameter;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
+import com.ibm.mq.headers.pcf.PCFParameter;
+import com.newrelic.infra.ibmmq.constants.EventConstants;
 import com.newrelic.infra.publish.api.MetricReporter;
 import com.newrelic.infra.publish.api.metrics.AttributeMetric;
 import com.newrelic.infra.publish.api.metrics.GaugeMetric;
 import com.newrelic.infra.publish.api.metrics.Metric;
-
-import ch.qos.logback.core.net.SyslogOutputStream;
-
-import com.newrelic.infra.ibmmq.constants.QueueSampleConstants;
-import com.newrelic.infra.ibmmq.constants.TopicSampleConstants;
 
 public class TopicMetricCollector {
 	private static final Logger logger = LoggerFactory.getLogger(TopicMetricCollector.class);
@@ -51,7 +44,7 @@ public class TopicMetricCollector {
 
 			inquireTopic.addParameter(MQConstants.MQCA_TOPIC_STRING, "#");
 			// There are three possible values for this input param. Not sure which one(s) to use
-			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_TYPE, MQConstants.MQIACF_TOPIC_SUB);
+			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_TYPE, MQConstants.MQIACF_TOPIC_PUB);
 			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_ATTRS,
 					new int[] { 
 							MQConstants.MQIACF_ALL
@@ -101,13 +94,6 @@ public class TopicMetricCollector {
 				} else {
 					skipCount++;
 				}
-				
-
-				   
-				//byte[] subId = response.getBytesParameterValue(MQConstants.MQBACF_SUB_ID);
-				//int currentDepth = response.getIntParameterValue(MQConstants.);
-				System.out.println(topicName);
-
 			}
 
 			logger.debug("{} topics skipped and {} topics reporting for this queue_manager", skipCount, reportingCount);
@@ -117,7 +103,23 @@ public class TopicMetricCollector {
 		}
 	}
     
-    private boolean isTopicIgnored(String qName) {
+    private boolean isTopicIgnored(String topicName) {
+	    if (StringUtils.isBlank(topicName)){
+	        return true;
+        }
+
+		for (Pattern includePattern : agentConfig.topicIncludes) {
+			if (includePattern.matcher(topicName).matches()) {
+				return false;
+			}
+		}
+
+		for (Pattern ignorePattern : agentConfig.topicIgnores) {
+			if (ignorePattern.matcher(topicName).matches()) {
+				logger.trace("Skipping metrics for topic: {}", topicName);
+				return true;
+			}
+		}
 		return false;
 	}
 

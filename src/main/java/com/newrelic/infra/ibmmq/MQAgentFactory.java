@@ -13,12 +13,16 @@ public class MQAgentFactory extends AgentFactory {
 	
 	private ArrayList<String> globalQueueIgnores = new ArrayList<>();
 	private ArrayList<String> globalQueueIncludes = new ArrayList<>();
+	private ArrayList<String> globalTopicIgnores = new ArrayList<>();
+	private ArrayList<String> globalTopicIncludes = new ArrayList<>();
 	
 	@Override
 	public void init(Map<String, Object> globalConfig) {
 		super.init(globalConfig);
 		loadListFromConfig(globalConfig.get("queueIgnores"), globalQueueIgnores);
 		loadListFromConfig(globalConfig.get("queueIncludes"), globalQueueIncludes);
+		loadListFromConfig(globalConfig.get("topicIgnores"), globalTopicIgnores);
+		loadListFromConfig(globalConfig.get("topicIncludes"), globalTopicIncludes);
 	}
 
 	private void loadListFromConfig(Object configList, List<String> destList) {
@@ -47,6 +51,7 @@ public class MQAgentFactory extends AgentFactory {
 		//boolean reportEventMessages = (Boolean) agentProperties.getOrDefault("reportEventMessages", false);
 		boolean reportEventMessages = (Boolean) getOrDefault(agentProperties, "reportEventMessages", false);
 		boolean reportQueueStatus =  (Boolean) getOrDefault(agentProperties, "reportQueueStatus", false);
+		boolean reportTopicStatus =  (Boolean) getOrDefault(agentProperties, "reportTopicStatus", false);
 
 
 		//boolean reportMaintenanceErrors = (Boolean) agentProperties.getOrDefault("reportMaintenanceErrors", false);
@@ -93,9 +98,12 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.setErrorLogPath(errorLogPath);
 		agentConfig.setAgentTempPath(agentTempPath);
 		agentConfig.setReportQueueStatus(reportQueueStatus);
+		agentConfig.setReportTopicStatus(reportTopicStatus);
 
 		agentConfig.addToQueueIgnores(globalQueueIgnores);
 		agentConfig.addToQueueIncludes(globalQueueIncludes);
+		agentConfig.addToQueueIgnores(globalTopicIgnores);
+		agentConfig.addToQueueIncludes(globalTopicIncludes);
 
 		MQAgent agent = new MQAgent(agentConfig, dailyMaintenanceErrorScanTime);
 		return agent ;

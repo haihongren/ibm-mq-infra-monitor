@@ -1,14 +1,10 @@
 package com.newrelic.infra.ibmmq;
 
-import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import com.newrelic.infra.ibmmq.constants.EventConstants;
-import com.newrelic.infra.ibmmq.constants.ObjectStatusSampleConstants;
-import com.newrelic.infra.ibmmq.constants.QueueSampleConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +14,9 @@ import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
+import com.newrelic.infra.ibmmq.constants.EventConstants;
+import com.newrelic.infra.ibmmq.constants.ObjectStatusSampleConstants;
+import com.newrelic.infra.ibmmq.constants.QueueSampleConstants;
 import com.newrelic.infra.publish.api.Agent;
 import com.newrelic.infra.publish.api.InventoryReporter;
 import com.newrelic.infra.publish.api.MetricReporter;
@@ -27,8 +26,6 @@ import com.newrelic.infra.publish.api.metrics.Metric;
 public class MQAgent extends Agent {
 	public static final String DEFAULT_SERVER_HOST = "localhost";
 	public static final int DEFAULT_SERVER_PORT = 1414;
-
-	//private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
 
 	private AgentConfig agentConfig = null;
 
@@ -97,8 +94,6 @@ public class MQAgent extends Agent {
 				logger.error("Problem creating PCFMessageAgent", t);
 				return;
 			}
-			//DELTE 
-			topicMetricCollector.reportTopicStats(agent, metricReporter);
 			
 			queueManagerMetricCollector.reportQueueManagerStatus(agent, metricReporter);
 			clusterMetricCollector.reportClusterQueueManagerSuspended(agent, metricReporter);
@@ -117,8 +112,10 @@ public class MQAgent extends Agent {
 			}
 			
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
-
-			topicMetricCollector.reportTopicStats(agent, metricReporter);
+			
+			if (agentConfig.reportTopicStatus()) {
+				topicMetricCollector.reportTopicStats(agent, metricReporter);
+			}
 
 			if (agentConfig.reportEventMessages()) {
 				eventMetricCollector.reportEventStats(mqQueueManager, metricReporter);
