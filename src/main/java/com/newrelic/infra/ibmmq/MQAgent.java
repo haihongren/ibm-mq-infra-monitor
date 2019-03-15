@@ -28,11 +28,12 @@ public class MQAgent extends Agent {
 	public static final String DEFAULT_SERVER_HOST = "localhost";
 	public static final int DEFAULT_SERVER_PORT = 1414;
 
-	private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
+	//private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd MMM HH:mm:ss");
 
 	private AgentConfig agentConfig = null;
 
 	private QueueMetricCollector queueMetricCollector = null;
+	private TopicMetricCollector topicMetricCollector = null;
 	private QueueManagerMetricCollector queueManagerMetricCollector = null;
 	private ListenerMetricCollector listenerMetricCollector = null;
 	private ChannelMetricCollector channelMetricCollector = null;
@@ -46,6 +47,7 @@ public class MQAgent extends Agent {
 		super();
 		this.agentConfig  = agentConfig;
 		this.queueMetricCollector  = new QueueMetricCollector(agentConfig);
+		this.topicMetricCollector  = new TopicMetricCollector(agentConfig);
 		this.queueManagerMetricCollector  = new QueueManagerMetricCollector(agentConfig);
 		this.listenerMetricCollector  = new ListenerMetricCollector(agentConfig);
 		this.channelMetricCollector  = new ChannelMetricCollector(agentConfig);
@@ -95,7 +97,9 @@ public class MQAgent extends Agent {
 				logger.error("Problem creating PCFMessageAgent", t);
 				return;
 			}
-
+			//DELTE 
+			topicMetricCollector.reportTopicStats(agent, metricReporter);
+			
 			queueManagerMetricCollector.reportQueueManagerStatus(agent, metricReporter);
 			clusterMetricCollector.reportClusterQueueManagerSuspended(agent, metricReporter);
 			listenerMetricCollector.reportListenerStatus(agent, metricReporter);
@@ -114,7 +118,7 @@ public class MQAgent extends Agent {
 			
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
 
-			//TODO collect topic metrics with MQCMD_INQUIRE_TOPIC_STATUS
+			topicMetricCollector.reportTopicStats(agent, metricReporter);
 
 			if (agentConfig.reportEventMessages()) {
 				eventMetricCollector.reportEventStats(mqQueueManager, metricReporter);
