@@ -101,10 +101,9 @@ public class MQAgent extends Agent {
 			
 			Map<String, List<Metric>> metricMap = new HashMap<>();
 			queueMetricCollector.reportQueueStats(agent, metricReporter, metricMap);
-			queueMetricCollector.reportResetQueueStats(agent, metricReporter, metricMap);
-
-            if (agentConfig.reportQueueStatus()) {
-                queueMetricCollector.reportQueueStatusStats(agent, metricReporter, metricMap);
+			queueMetricCollector.addResetQueueStats(agent, metricReporter, metricMap);
+            if (agentConfig.reportAdditionalQueueStatus()) {
+                queueMetricCollector.addQueueStatusStats(agent, metricReporter, metricMap);
             }
 
 			for (Map.Entry<String, List<Metric>> entry : metricMap.entrySet()) {
@@ -114,7 +113,8 @@ public class MQAgent extends Agent {
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
 			
 			if (agentConfig.reportTopicStatus()) {
-				topicMetricCollector.reportTopicStats(agent, metricReporter);
+				topicMetricCollector.reportTopicStatus(agent, metricReporter);
+				topicMetricCollector.reportTopicStatusSub(agent, metricReporter);
 			}
 
 			if (agentConfig.reportEventMessages()) {

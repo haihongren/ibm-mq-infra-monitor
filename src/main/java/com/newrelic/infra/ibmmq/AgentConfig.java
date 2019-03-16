@@ -30,7 +30,7 @@ public class AgentConfig {
 	private boolean reportMaintenanceErrors = false;
 	private boolean monitorErrorLogs;
 
-	private boolean reportQueueStatus = false;
+	private boolean reportAdditionalQueueStatus = false;
 	private boolean reportTopicStatus = false;
 	
 	private String mqToolsLogPath;
@@ -101,8 +101,8 @@ public class AgentConfig {
 		this.reportEventMessages = reportEventMessages;
 	}
 
-	public void setReportQueueStatus(boolean reportQueueStatus){
-        this.reportQueueStatus = reportQueueStatus;
+	public void setReportAdditionalQueueStatus(boolean reportAdditionalQueueStatus){
+        this.reportAdditionalQueueStatus = reportAdditionalQueueStatus;
     }
 	
 	public void setReportTopicStatus(boolean reportTopicStatus){
@@ -161,8 +161,8 @@ public class AgentConfig {
 		return reportEventMessages;
 	}
 
-    public boolean reportQueueStatus() {
-        return reportQueueStatus;
+    public boolean reportAdditionalQueueStatus() {
+        return reportAdditionalQueueStatus;
     }
     
     public boolean reportTopicStatus() {

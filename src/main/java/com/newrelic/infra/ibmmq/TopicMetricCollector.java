@@ -35,7 +35,7 @@ public class TopicMetricCollector {
 		this.agentConfig  = config;
 	}
 
-    public void reportTopicStats(PCFMessageAgent agent, MetricReporter metricReporter) {
+    public void reportTopicStatus(PCFMessageAgent agent, MetricReporter metricReporter) {
 		try {
 			logger.debug("Getting Topic metrics for queueManager: " + agent.getQManagerName().trim());
 
@@ -44,7 +44,7 @@ public class TopicMetricCollector {
 
 			inquireTopic.addParameter(MQConstants.MQCA_TOPIC_STRING, "#");
 			// There are three possible values for this input param. Not sure which one(s) to use
-			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_TYPE, MQConstants.MQIACF_TOPIC_PUB);
+			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_TYPE, MQConstants.MQIACF_TOPIC_STATUS);
 			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_ATTRS,
 					new int[] { 
 							MQConstants.MQIACF_ALL
@@ -67,20 +67,12 @@ public class TopicMetricCollector {
 						topicName = topicName.trim();
 						List<Metric> metricset = new LinkedList<Metric>();
 						addCommonAttribute(metricset, topicName);
-						//Do not assume what parameters are returned other than MQCA_TOPIC_STRING. accessing an parameter that does not get returned result in an error
 						while (responseParams.hasMoreElements()) {
 							PCFParameter param = responseParams.nextElement();
-							System.out.println("\t"+param.getParameterName() + " = " + param.getValue() + " // " + param.getValue().getClass().toString());
+							//System.out.println("\t"+param.getParameterName() + " = " + param.getValue() + " // " + param.getValue().getClass().toString());
 							if (param.getParameter() == MQConstants.MQIA_DURABLE_SUB) {
 								int durable = response.getIntParameterValue(MQConstants.MQIA_DURABLE_SUB);
 								metricset.add(new GaugeMetric(EventConstants.DURABLE, durable));
-							} else if (param.getParameter() == MQConstants.MQBACF_SUB_ID) {
-								byte[] subId = response.getBytesParameterValue(MQConstants.MQBACF_SUB_ID);
-								//cannot really report a random byte[], not sure of string conv
-								metricset.add(new AttributeMetric(EventConstants.SUB_ID, subId.toString()));
-							} else if (param.getParameter() == MQConstants.MQBACF_SUB_ID) {
-								String subUserId = response.getStringParameterValue(MQConstants.MQCACF_SUB_USER_ID);
-								metricset.add(new AttributeMetric(EventConstants.SUB_USER_ID, new String(subUserId)));
 							} else if (param.getParameter() == MQConstants.MQIA_PUB_COUNT) {
 								int pubCount = response.getIntParameterValue(MQConstants.MQIA_PUB_COUNT);
 								metricset.add(new GaugeMetric(EventConstants.PUB_COUNT, pubCount));
@@ -89,6 +81,82 @@ public class TopicMetricCollector {
 								metricset.add(new GaugeMetric(EventConstants.SUB_COUNT, subCount));
 							}
 						}
+						metricset.add(new AttributeMetric(EventConstants.STATUS_TYPE, "topicStatus"));
+						metricReporter.report("MQTopicSample", metricset, topicName);
+					}
+				} else {
+					skipCount++;
+				}
+			}
+
+			logger.debug("{} topics skipped and {} topics reporting for this queue_manager", skipCount, reportingCount);
+
+		} catch (Throwable t) {
+			logger.error("Exception occurred", t);
+		}
+	}
+    
+    public void reportTopicStatusSub(PCFMessageAgent agent, MetricReporter metricReporter) {
+		try {
+			logger.debug("Getting Topic Sub metrics for queueManager: " + agent.getQManagerName().trim());
+
+			// Prepare PCF command to inquire topic status
+			PCFMessage inquireTopic = new PCFMessage(MQConstants.MQCMD_INQUIRE_TOPIC_STATUS); 
+
+			inquireTopic.addParameter(MQConstants.MQCA_TOPIC_STRING, "#");
+			// There are three possible values for this input param. Not sure which one(s) to use
+			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_TYPE, MQConstants.MQIACF_TOPIC_SUB);
+			inquireTopic.addParameter(MQConstants.MQIACF_TOPIC_STATUS_ATTRS,
+					new int[] { 
+							MQConstants.MQIACF_ALL
+						});
+
+			PCFMessage[] responses = agent.send(inquireTopic);
+
+			logger.debug("{} topics returned by this query", responses.length);
+			
+			int skipCount = 0;
+			int reportingCount = 0;
+			for (int j = 0; j < responses.length; j++) {
+				PCFMessage response = responses[j];
+				String topicName = response.getStringParameterValue(MQConstants.MQCA_TOPIC_STRING);
+				if (!isTopicIgnored(topicName)) {
+					reportingCount++;
+					if (topicName != null) {
+						topicName = topicName.trim();
+						List<Metric> metricset = new LinkedList<Metric>();
+						addCommonAttribute(metricset, topicName);
+						
+						int durablesub = response.getIntParameterValue(MQConstants.MQIACF_DURABLE_SUBSCRIPTION);
+						byte[] subId = response.getBytesParameterValue(MQConstants.MQBACF_SUB_ID);
+						String subUserId = response.getStringParameterValue(MQConstants.MQCACF_SUB_USER_ID);
+						int subType = response.getIntParameterValue(MQConstants.MQIACF_SUB_TYPE);
+						String resumeDate = response.getStringParameterValue(MQConstants.MQCA_RESUME_DATE);
+						String resumeTime = response.getStringParameterValue(MQConstants.MQCA_RESUME_TIME);
+						String lastMessageDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_MSG_DATE);
+						String lastMessageTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_MSG_TIME);
+						int messageCount = response.getIntParameterValue(MQConstants.MQIACF_MESSAGE_COUNT);
+						byte[] connectionId = response.getBytesParameterValue(MQConstants.MQBACF_CONNECTION_ID);
+						
+						
+						metricset.add(new GaugeMetric(EventConstants.DURABLE_SUBSCRIPTION, durablesub));
+						metricset.add(new AttributeMetric(EventConstants.SUB_ID, subId));
+						metricset.add(new AttributeMetric(EventConstants.SUB_USER_ID, subUserId));
+						if (subType == MQConstants.MQSUBTYPE_ADMIN) {
+							metricset.add(new AttributeMetric(EventConstants.SUB_TYPE, "ADMIN"));
+						} else if (subType == MQConstants.MQSUBTYPE_API) {
+							metricset.add(new AttributeMetric(EventConstants.SUB_TYPE, "API"));
+						} else if (subType == MQConstants.MQSUBTYPE_PROXY) {
+							metricset.add(new AttributeMetric(EventConstants.SUB_TYPE, "PROXY"));
+						} 
+						metricset.add(new AttributeMetric(EventConstants.ResumeDate, resumeDate));
+						metricset.add(new AttributeMetric(EventConstants.ResumeTime, resumeTime));
+						metricset.add(new AttributeMetric(EventConstants.LastMessageDate, lastMessageDate));
+						metricset.add(new AttributeMetric(EventConstants.LastMessageTime, lastMessageTime));
+						metricset.add(new AttributeMetric(EventConstants.ConnectionId, connectionId));
+						metricset.add(new GaugeMetric(EventConstants.MessageCount, messageCount));
+						
+						metricset.add(new AttributeMetric(EventConstants.STATUS_TYPE, "topicSub"));
 						metricReporter.report("MQTopicSample", metricset, topicName);
 					}
 				} else {

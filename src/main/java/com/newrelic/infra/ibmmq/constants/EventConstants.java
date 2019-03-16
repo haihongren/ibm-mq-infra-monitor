@@ -27,5 +27,14 @@ public interface EventConstants {
 	String PUB_COUNT = "pubCount";
 	String SUB_COUNT = "subCount";
 	String SUB_USER_ID = "subUserId";
+	String DURABLE_SUBSCRIPTION = "durable";
+	String SUB_TYPE = "subType";
+	String ResumeDate = "resumeDate";
+	String ResumeTime = "resumeTime";
+	String LastMessageDate = "lastMessageDate";
+	String LastMessageTime = "lastMessageTime";
+	String MessageCount = "messageCount";
+	String ConnectionId = "connectionId";
+	String STATUS_TYPE = "statusType";
 
 }

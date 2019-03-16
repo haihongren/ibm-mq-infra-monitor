@@ -35,71 +35,6 @@ public class QueueMetricCollector {
 	public QueueMetricCollector(AgentConfig config) {
 		this.agentConfig  = config;
 	}
-	
-
-    public void reportQueueStatusStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
-        try {
-            logger.debug("Getting Queue Status metrics for queueManager: " + agent.getQManagerName().trim());
-
-            // Prepare PCF command to inquire queue status (status type)
-            PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_STATUS);
-
-            inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
-            inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);
-            inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS,
-                    new int[] {
-                            MQConstants.MQIACF_OLDEST_MSG_AGE,
-                            MQConstants.MQIACF_UNCOMMITTED_MSGS,
-                            MQConstants.MQCACF_LAST_GET_DATE, MQConstants.MQCACF_LAST_GET_TIME,
-                            MQConstants.MQCACF_LAST_PUT_DATE, MQConstants.MQCACF_LAST_PUT_TIME
-                    });
-
-            PCFMessage[] responses = agent.send(inquireQueueStatus);
-
-            logger.debug("{} Queue Status returned by this query", responses.length);
-
-            int skipCount = 0;
-            int reportingCount = 0;
-
-            for (int j = 0; j < responses.length; j++) {
-                PCFMessage response = responses[j];
-                String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
-
-                int oldestMsgAge = response.getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
-                int uncommittedMsgs = response.getIntParameterValue(MQConstants.MQIACF_UNCOMMITTED_MSGS);
-                String lastGetDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
-                String lastGetTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
-                String lastPutDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
-                String lastPutTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
-
-
-                if (isQueueIgnored(qName)) {
-                    skipCount++;
-                    continue;
-                }
-
-                reportingCount++;
-                String queueName = qName.trim();
-
-                List<Metric> metricset = metricMap.get(queueName);
-                addCommonAttribute(metricset, queueName);
-
-
-                metricset.add(new GaugeMetric(QueueSampleConstants.OLDEST_MSG_AGE, oldestMsgAge));
-                metricset.add(new GaugeMetric(QueueSampleConstants.UNCOMITTED_MSGS, uncommittedMsgs));
-
-                metricset.add(new AttributeMetric(QueueSampleConstants.LAST_GET_DATE_TIME, String.format("%s %s",lastGetDate ,lastGetTime).trim()));
-                metricset.add(new AttributeMetric(QueueSampleConstants.LAST_PUT_DATE_TIME, String.format("%s %s",lastPutDate ,lastPutTime).trim()));
-                metricMap.put(queueName, metricset);
-
-            }
-
-            logger.debug("{} queues skipped and {} queues reporting for this queue_manager", skipCount, reportingCount);
-
-        } catch (Throwable t) {
-            logger.error("Exception occurred", t);
-        }
-    }
 
     public void reportQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
 		try {
@@ -165,7 +100,7 @@ public class QueueMetricCollector {
 		}
 	}
 
-	public void reportResetQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+	public void addResetQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
 		try {
 
 			logger.debug("Getting ResetQueueStats metrics for queueManager: " + agentConfig.getServerQueueManagerName());
@@ -174,46 +109,74 @@ public class QueueMetricCollector {
 			inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
 
 			PCFMessage[] responses = agent.send(inquireQueueStatus);
-
-			logger.debug("{} queues returned by this query", responses.length);
-
-			int skipCount = 0;
-			int reportingCount = 0;
 			for (int j = 0; j < responses.length; j++) {
 				PCFMessage response = responses[j];
 				String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
 				int highQDepth = response.getIntParameterValue(MQConstants.MQIA_HIGH_Q_DEPTH);
 				int msgDeqCount = response.getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
 				int msgEnqCount = response.getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
-
 				int timeSinceReset = response.getIntParameterValue(MQConstants.MQIA_TIME_SINCE_RESET);
-
-				if (!isQueueIgnored(qName)) {
-					reportingCount++;
-					if (qName != null) {
-						String queueName = qName.trim();
-						List<Metric> metricset = metricMap.get(queueName);
-                        addCommonAttribute(metricset, queueName);
-
+				if (qName != null) {
+					String queueName = qName.trim();
+					List<Metric> metricset = metricMap.get(queueName);
+					if (metricset != null) {
                         metricset.add(new GaugeMetric(QueueSampleConstants.HIGH_Q_DEPTH, highQDepth));
 						metricset.add(new GaugeMetric(QueueSampleConstants.MSG_DEQ_COUNT, msgDeqCount));
 						metricset.add(new GaugeMetric(QueueSampleConstants.MSG_ENQ_COUNT, msgEnqCount));
-
-						metricset.add(new GaugeMetric(QueueSampleConstants.TIME_SINCE_RESET, timeSinceReset));
-						metricMap.put(queueName, metricset);
-
+						metricset.add(new GaugeMetric(QueueSampleConstants.TIME_SINCE_RESET, timeSinceReset));	
 					}
-				} else {
-					skipCount++;
 				}
 			}
-
-			logger.debug("{} queues skipped and {} queues reporting for this queue_manager", skipCount, reportingCount);
 		} catch (Throwable t) {
 			logger.error("Exception occurred", t);
 		}
 	}
 
+    public void addQueueStatusStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+        try {
+            logger.debug("Getting additional Queue Status metrics for queueManager: " + agent.getQManagerName());
+
+            // Prepare PCF command to inquire queue status (status type)
+            PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_STATUS);
+
+            inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
+            inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);
+            inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS,
+                    new int[] {
+                            MQConstants.MQIACF_OLDEST_MSG_AGE,
+                            MQConstants.MQIACF_UNCOMMITTED_MSGS,
+                            MQConstants.MQCACF_LAST_GET_DATE, MQConstants.MQCACF_LAST_GET_TIME,
+                            MQConstants.MQCACF_LAST_PUT_DATE, MQConstants.MQCACF_LAST_PUT_TIME
+                    });
+
+            PCFMessage[] responses = agent.send(inquireQueueStatus);
+            
+            for (int j = 0; j < responses.length; j++) {
+                PCFMessage response = responses[j];
+                String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
+
+                int oldestMsgAge = response.getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
+                int uncommittedMsgs = response.getIntParameterValue(MQConstants.MQIACF_UNCOMMITTED_MSGS);
+                String lastGetDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
+                String lastGetTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
+                String lastPutDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
+                String lastPutTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
+
+                String queueName = qName.trim();
+
+                List<Metric> metricset = metricMap.get(queueName);
+                if (metricset != null) {
+                    metricset.add(new GaugeMetric(QueueSampleConstants.OLDEST_MSG_AGE, oldestMsgAge));
+                    metricset.add(new GaugeMetric(QueueSampleConstants.UNCOMITTED_MSGS, uncommittedMsgs));
+
+                    metricset.add(new AttributeMetric(QueueSampleConstants.LAST_GET_DATE_TIME, String.format("%s %s",lastGetDate ,lastGetTime).trim()));
+                    metricset.add(new AttributeMetric(QueueSampleConstants.LAST_PUT_DATE_TIME, String.format("%s %s",lastPutDate ,lastPutTime).trim()));
+                }
+            }
+        } catch (Throwable t) {
+            logger.error("Exception occurred " + "while getting additional Queue Status metrics for queueManager: " + agent.getQManagerName(), t);
+        }
+    }
 
 	private boolean isQueueIgnored(String qName) {
 	    if (StringUtils.isBlank(qName)){
@@ -232,7 +195,6 @@ public class QueueMetricCollector {
 				return true;
 			}
 		}
-
 		return false;
 	}
 
