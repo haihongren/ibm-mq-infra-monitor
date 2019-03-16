@@ -113,7 +113,7 @@ public class TopicMetricCollector {
 
 			PCFMessage[] responses = agent.send(inquireTopic);
 
-			logger.debug("{} topics returned by this query", responses.length);
+			logger.debug("{} topic subs returned by this query", responses.length);
 			
 			int skipCount = 0;
 			int reportingCount = 0;
@@ -164,7 +164,7 @@ public class TopicMetricCollector {
 				}
 			}
 
-			logger.debug("{} topics skipped and {} topics reporting for this queue_manager", skipCount, reportingCount);
+			logger.debug("{} topic subs skipped and {} topics reporting for this queue_manager", skipCount, reportingCount);
 
 		} catch (Throwable t) {
 			logger.error("Exception occurred", t);
