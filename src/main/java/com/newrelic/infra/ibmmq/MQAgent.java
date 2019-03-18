@@ -114,6 +114,8 @@ public class MQAgent extends Agent {
 			
 			if (agentConfig.reportTopicStatus()) {
 				topicMetricCollector.reportTopicStatus(agent, metricReporter);
+			}
+			if (agentConfig.reportAdditionalTopicStatus() ) {
 				topicMetricCollector.reportTopicStatusSub(agent, metricReporter);
 			}
 

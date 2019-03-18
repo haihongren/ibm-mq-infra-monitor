@@ -32,6 +32,7 @@ public class AgentConfig {
 
 	private boolean reportAdditionalQueueStatus = false;
 	private boolean reportTopicStatus = false;
+	private boolean reportAdditionalTopicStatus = false;
 	
 	private String mqToolsLogPath;
 	private String errorLogPath;
@@ -108,6 +109,10 @@ public class AgentConfig {
 	public void setReportTopicStatus(boolean reportTopicStatus){
         this.reportTopicStatus = reportTopicStatus;
     }
+	
+	public void setReportAdditionalTopicStatus(boolean reportAdditionalTopicStatus) {
+		this.reportAdditionalTopicStatus = reportAdditionalTopicStatus ;
+	}
 
 	public void setReportMaintenanceErrors(boolean reportMaintenanceErrors) {
 		this.reportMaintenanceErrors = reportMaintenanceErrors;
@@ -169,6 +174,10 @@ public class AgentConfig {
         return reportTopicStatus;
     }
     
+    public boolean reportAdditionalTopicStatus() {
+        return reportAdditionalTopicStatus;
+    }
+
     public boolean reportMaintenanceErrors() {
 		return reportMaintenanceErrors;
 	}
