@@ -29,7 +29,7 @@
     </appender>
     	<appender name="NOP" class="ch.qos.logback.core.helpers.NOPAppender">
 	</appender>
-    <logger name="com.newrelic" level="INFO" additivity="false">
+    <logger name="com.newrelic" level="DEBUG" additivity="false">
         <appender-ref ref="FILE" />
     </logger>
     <logger name="io.grpc.netty">
