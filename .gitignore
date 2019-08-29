@@ -15,7 +15,6 @@
 *.dmg
 *.gz
 *.iso
-*.jar
 *.rar
 *.tar
 *.zip
@@ -88,7 +87,7 @@ atlassian-ide-plugin.xml
 
 # MQ Client Jars #
 ##################
-/mqlib/
+# /mqlib/
 
 # Other config files #
 ######################
