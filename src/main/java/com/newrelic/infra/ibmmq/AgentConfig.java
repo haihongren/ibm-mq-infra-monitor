@@ -20,6 +20,26 @@ public class AgentConfig {
 	private String serverAuthUser = StringUtils.EMPTY;
 	private String serverAuthPassword = StringUtils.EMPTY;
 	private String serverChannelName = "SYSTEM.DEF.SVRCONN";
+//	add cipherSuite for SSL support hren
+	private String cipherSuite = StringUtils.EMPTY;
+	private String modelQueue = "";
+	private String commandQueue = "";
+	public String getModelQueue() {
+		return modelQueue;
+	}
+
+	public void setModelQueue(String modelQueue) {
+		this.modelQueue = modelQueue;
+	}
+
+	public String getCommandQueue() {
+		return commandQueue;
+	}
+
+	public void setCommandQueue(String commandQueue) {
+		this.commandQueue = commandQueue;
+	}
+
 	private String serverQueueManagerName = null;
 	List<Pattern> queueIgnores = new ArrayList<>();
 	List<Pattern> queueIncludes = new ArrayList<>();
@@ -38,6 +58,15 @@ public class AgentConfig {
 	private String errorLogPath;
 	private String agentTempPath;
 
+
+	public void setcipherSuite(String cipherSuite) {
+		this.cipherSuite = cipherSuite;
+	}
+
+	public String getcipherSuite() {
+		return this.cipherSuite;
+	}
+	
 	public String getErrorLogPath() {
 		return errorLogPath;
 	}

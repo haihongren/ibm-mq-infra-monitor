@@ -1,11 +1,14 @@
 package com.newrelic.infra.ibmmq;
 
-import com.newrelic.infra.publish.api.Agent;
-import com.newrelic.infra.publish.api.AgentFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.newrelic.infra.publish.api.Agent;
+import com.newrelic.infra.publish.api.AgentFactory;
 
 public class MQAgentFactory extends AgentFactory {
 
@@ -16,6 +19,7 @@ public class MQAgentFactory extends AgentFactory {
 	private ArrayList<String> globalTopicIgnores = new ArrayList<>();
 	private ArrayList<String> globalTopicIncludes = new ArrayList<>();
 	
+	private static final Logger logger = LoggerFactory.getLogger(MQAgentFactory.class);
 	@Override
 	public void init(Map<String, Object> globalConfig) {
 		super.init(globalConfig);
@@ -36,6 +40,10 @@ public class MQAgentFactory extends AgentFactory {
 		String name = (String) agentProperties.get("name");
 		String host = (String) agentProperties.get("host");
 		Integer port = (Integer) agentProperties.get("port");
+//		add cipherSuite for SSL support hren
+		String cipherSuite = (String) getOrDefault(agentProperties, "cipherSuite", "");
+		String modelQueue = (String) getOrDefault(agentProperties, "modelQueue", "");
+		String commandQueue = (String) getOrDefault(agentProperties, "commandQueue", "");
 		if (port == null) {
 			port = DEFAULT_PORT;
 		}
@@ -101,6 +109,10 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.setReportTopicStatus(reportTopicStatus);
 		agentConfig.setReportAdditionalTopicStatus(reportAdditionalTopicStatus);
 
+//		add cipherSuite for SSL support hren
+		agentConfig.setcipherSuite(cipherSuite);
+		agentConfig.setModelQueue(modelQueue);
+		agentConfig.setCommandQueue(commandQueue);
 		agentConfig.addToQueueIgnores(globalQueueIgnores);
 		agentConfig.addToQueueIncludes(globalQueueIncludes);
 		agentConfig.addToTopicIgnores(globalTopicIgnores);

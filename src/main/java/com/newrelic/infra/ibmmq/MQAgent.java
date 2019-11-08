@@ -79,19 +79,33 @@ public class MQAgent extends Agent {
 				return;
 			}
 			try {
-				agent = new PCFMessageAgent(mqQueueManager);
-				agent.connect(mqQueueManager);
+				logger.debug("model queue:"+agentConfig.getModelQueue());
+				logger.debug("command queue:"+agentConfig.getCommandQueue());
+				agent = new PCFMessageAgent();
+//				hren add modelqueue support
+				if (!agentConfig.getModelQueue().isEmpty())
+				{
+					agent.setModelQueueName(agentConfig.getModelQueue());
+
+				}
+//				hren add commandqueue support 
+				if (!agentConfig.getCommandQueue().isEmpty())
+				{
+					agent.connect(mqQueueManager, agentConfig.getCommandQueue(), (String) null);
+				}else {
+					agent.connect(mqQueueManager);
+				}
 			} catch (PCFException e) {
 				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_CONNECT_ERROR", e.reasonCode, metricReporter);
-				logger.error("Problem creating PCFMessageAgent", e);
+				logger.error("Problem creating PCFMessageAgent:PCFException ", e);
 				return;
 			} catch (com.ibm.mq.headers.MQExceptionWrapper e) {
 				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_CONNECT_ERROR", e.reasonCode, metricReporter);
-				logger.error("Problem creating PCFMessageAgent", e);
+				logger.error("Problem creating PCFMessageAgent:MQExceptionWrapper", e);
 				return;
 			} catch (Throwable t) {
 				reportQueueManagerHostNotResponding(agentConfig.getServerQueueManagerName(), "QUEUE_MANAGER_CONNECT_ERROR", 1, metricReporter);
-				logger.error("Problem creating PCFMessageAgent", t);
+				logger.error("Problem creating PCFMessageAgent:Throwable", t);
 				return;
 			}
 			
@@ -148,8 +162,13 @@ public class MQAgent extends Agent {
 		MQEnvironment.userID = agentConfig.getServerAuthUser();
 		MQEnvironment.password = agentConfig.getServerAuthPassword();
 		MQEnvironment.channel = agentConfig.getServerChannelName();
+//		add cipherSuite for SSL support hren
+		if (!agentConfig.getcipherSuite().isEmpty())
+		{
+			MQEnvironment.sslCipherSuite=agentConfig.getcipherSuite();
+		}
 		MQQueueManager qMgr = new MQQueueManager(agentConfig.getServerQueueManagerName());
-
+		
 		MQEnvironment.properties.put(MQConstants.TRANSPORT_PROPERTY, MQConstants.TRANSPORT_MQSERIES_CLIENT);
 
 		return qMgr;
