@@ -114,15 +114,26 @@ public class MQAgent extends Agent {
 			listenerMetricCollector.reportListenerStatus(agent, metricReporter);
 			
 			Map<String, List<Metric>> metricMap = new HashMap<>();
-			queueMetricCollector.reportQueueStats(agent, metricReporter, metricMap);
-			queueMetricCollector.addResetQueueStats(agent, metricReporter, metricMap);
-            if (agentConfig.reportAdditionalQueueStatus()) {
-                queueMetricCollector.addQueueStatusStats(agent, metricReporter, metricMap);
-            }
 
+			//hren handle queueToPolls logic, only send PCFMessage to those queues in queueToPolls 
+			logger.debug(" queueToPolls:"+agentConfig.queueToPolls);
+			
+			for (String queueToPoll : agentConfig.queueToPolls) {
+				logger.debug("About to to poll Queue:"+queueToPoll);
+				queueMetricCollector.reportQueueStats(agent, metricReporter, metricMap, queueToPoll);
+				queueMetricCollector.addResetQueueStats(agent, metricReporter, metricMap,queueToPoll);
+	            if (agentConfig.reportAdditionalQueueStatus()) {
+	                queueMetricCollector.addQueueStatusStats(agent, metricReporter, metricMap,queueToPoll);
+	            }
+			}
+			
 			for (Map.Entry<String, List<Metric>> entry : metricMap.entrySet()) {
 				metricReporter.report(QueueSampleConstants.MQ_QUEUE_SAMPLE, entry.getValue());
 			}
+
+			
+
+			// end handle queueToPoll logic
 			
 			channelMetricCollector.reportChannelStats(agent, metricReporter);
 			
@@ -157,6 +168,21 @@ public class MQAgent extends Agent {
 
 	@SuppressWarnings("unchecked")
 	private MQQueueManager connect() throws MQException  {
+//		set SSL system properties
+		if (!agentConfig.getSslTrustStore().isEmpty())
+		{
+			logger.debug(" javax.net.ssl.trustStore:"+agentConfig.getSslTrustStore());
+			System.setProperty("javax.net.ssl.trustStore",agentConfig.getSslTrustStore());
+			System.setProperty("javax.net.ssl.trustStorePassword",agentConfig.getSslTrustStorePassword());
+		}
+
+		if (!agentConfig.getSslKeyStore().isEmpty())
+		{
+			logger.debug(" javax.net.ssl.keyStore:"+agentConfig.getSslKeyStore());
+			System.setProperty("javax.net.ssl.keyStore",agentConfig.getSslKeyStore());
+			System.setProperty("javax.net.ssl.keyStorePassword",agentConfig.getSslKeyStorePassword());
+		}
+		
 		MQEnvironment.hostname = agentConfig.getServerHost();
 		MQEnvironment.port = agentConfig.getServerPort();
 		MQEnvironment.userID = agentConfig.getServerAuthUser();

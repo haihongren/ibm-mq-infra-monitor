@@ -18,6 +18,7 @@ public class MQAgentFactory extends AgentFactory {
 	private ArrayList<String> globalQueueIncludes = new ArrayList<>();
 	private ArrayList<String> globalTopicIgnores = new ArrayList<>();
 	private ArrayList<String> globalTopicIncludes = new ArrayList<>();
+	private ArrayList<String> globalQueueToPolls = new ArrayList<>();
 	
 	private static final Logger logger = LoggerFactory.getLogger(MQAgentFactory.class);
 	@Override
@@ -27,6 +28,7 @@ public class MQAgentFactory extends AgentFactory {
 		loadListFromConfig(globalConfig.get("queueIncludes"), globalQueueIncludes);
 		loadListFromConfig(globalConfig.get("topicIgnores"), globalTopicIgnores);
 		loadListFromConfig(globalConfig.get("topicIncludes"), globalTopicIncludes);
+		loadListFromConfig(globalConfig.get("queueToPolls"), globalQueueToPolls);		
 	}
 
 	private void loadListFromConfig(Object configList, List<String> destList) {
@@ -44,6 +46,13 @@ public class MQAgentFactory extends AgentFactory {
 		String cipherSuite = (String) getOrDefault(agentProperties, "cipherSuite", "");
 		String modelQueue = (String) getOrDefault(agentProperties, "modelQueue", "");
 		String commandQueue = (String) getOrDefault(agentProperties, "commandQueue", "");
+		
+		String sslTrustStore = (String) getOrDefault(agentProperties, "sslTrustStore", "");
+		String sslTrustStorePassword = (String) getOrDefault(agentProperties, "sslTrustStorePassword", "");
+		String sslKeyStore = (String) getOrDefault(agentProperties, "sslKeyStore", "");
+		String sslKeyStorePassword = (String) getOrDefault(agentProperties, "sslKeyStorePassword", "");
+		
+		
 		if (port == null) {
 			port = DEFAULT_PORT;
 		}
@@ -113,11 +122,18 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.setcipherSuite(cipherSuite);
 		agentConfig.setModelQueue(modelQueue);
 		agentConfig.setCommandQueue(commandQueue);
+		
+		agentConfig.setSslTrustStore(sslTrustStore);
+		agentConfig.setSslTrustStorePassword(sslTrustStorePassword);
+		agentConfig.setSslKeyStore(sslKeyStore);
+		agentConfig.setSslKeyStorePassword(sslKeyStorePassword);
+		
 		agentConfig.addToQueueIgnores(globalQueueIgnores);
 		agentConfig.addToQueueIncludes(globalQueueIncludes);
 		agentConfig.addToTopicIgnores(globalTopicIgnores);
 		agentConfig.addToTopicIncludes(globalTopicIncludes);
-
+		agentConfig.addToQueueToPolls(globalQueueToPolls);
+		
 		MQAgent agent = new MQAgent(agentConfig, dailyMaintenanceErrorScanTime);
 		return agent ;
 	}

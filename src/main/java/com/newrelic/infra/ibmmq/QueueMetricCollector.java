@@ -36,14 +36,14 @@ public class QueueMetricCollector {
 		this.agentConfig  = config;
 	}
 
-    public void reportQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+    public void reportQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap, String queueToPoll) {
 		try {
-			logger.debug("Getting Queue metrics for queueManager: " + agent.getQManagerName().trim());
+			logger.debug("Getting Queue metrics for queueManager: " + agent.getQManagerName().trim()+" QUEUE:"+queueToPoll);
 
 			// Prepare PCF command to inquire queue status (status type) 
 			PCFMessage inquireQueue = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q); 
 
-			inquireQueue.addParameter(MQConstants.MQCA_Q_NAME, "*");
+			inquireQueue.addParameter(MQConstants.MQCA_Q_NAME, queueToPoll);
 			inquireQueue.addParameter(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_LOCAL);
 			inquireQueue.addParameter(MQConstants.MQIACF_Q_ATTRS,
 					new int[] { 
@@ -100,13 +100,14 @@ public class QueueMetricCollector {
 		}
 	}
 
-	public void addResetQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+	public void addResetQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap,String queueToPoll) {
 		try {
 
-			logger.debug("Getting ResetQueueStats metrics for queueManager: " + agentConfig.getServerQueueManagerName());
+			logger.debug("Getting ResetQueueStats metrics for queueManager: " + agentConfig.getServerQueueManagerName()+" QUEUE:"+queueToPoll);
 
 			PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_RESET_Q_STATS);
-			inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
+//			hren queuesToMonitor
+			inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, queueToPoll);
 
 			PCFMessage[] responses = agent.send(inquireQueueStatus);
 			for (int j = 0; j < responses.length; j++) {
@@ -132,14 +133,14 @@ public class QueueMetricCollector {
 		}
 	}
 
-    public void addQueueStatusStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+    public void addQueueStatusStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap,String queueToPoll) {
         try {
-            logger.debug("Getting additional Queue Status metrics for queueManager: " + agent.getQManagerName());
+            logger.debug("Getting additional Queue Status metrics for queueManager: " + agent.getQManagerName()+" QUEUE:"+queueToPoll);
 
             // Prepare PCF command to inquire queue status (status type)
             PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_STATUS);
 
-            inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
+            inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, queueToPoll);
             inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);
             inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS,
                     new int[] {
