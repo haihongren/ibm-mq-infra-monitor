@@ -39,7 +39,7 @@ public class MQAgent extends Agent {
 	private LogMetricCollector logMetricCollector = null;
 
 	private static final Logger logger = LoggerFactory.getLogger(MQAgent.class);
-	
+
 	public MQAgent(AgentConfig agentConfig, String dailyMaintenanceErrorScanTime) {
 		super();
 		this.agentConfig  = agentConfig;
@@ -166,6 +166,7 @@ public class MQAgent extends Agent {
 		}
 	}
 
+	// Often times a code lookup will result in a lengthy description like
 	@SuppressWarnings("unchecked")
 	private MQQueueManager connect() throws MQException  {
 //		set SSL system properties
@@ -182,7 +183,7 @@ public class MQAgent extends Agent {
 			System.setProperty("javax.net.ssl.keyStore",agentConfig.getSslKeyStore());
 			System.setProperty("javax.net.ssl.keyStorePassword",agentConfig.getSslKeyStorePassword());
 		}
-		
+
 		MQEnvironment.hostname = agentConfig.getServerHost();
 		MQEnvironment.port = agentConfig.getServerPort();
 		MQEnvironment.userID = agentConfig.getServerAuthUser();
@@ -194,13 +195,12 @@ public class MQAgent extends Agent {
 			MQEnvironment.sslCipherSuite=agentConfig.getcipherSuite();
 		}
 		MQQueueManager qMgr = new MQQueueManager(agentConfig.getServerQueueManagerName());
-		
+
 		MQEnvironment.properties.put(MQConstants.TRANSPORT_PROPERTY, MQConstants.TRANSPORT_MQSERIES_CLIENT);
 
 		return qMgr;
 	}
 
-	// Often times a code lookup will result in a lengthy description like
 	// abc/xyz/someValue and we just want someValue.
 	public static String friendlyCodeLookup(int code, String filter) {
 		String desc = MQConstants.lookup(code, filter);

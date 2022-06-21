@@ -51,8 +51,32 @@ public class MQAgentFactory extends AgentFactory {
 		String sslTrustStorePassword = (String) getOrDefault(agentProperties, "sslTrustStorePassword", "");
 		String sslKeyStore = (String) getOrDefault(agentProperties, "sslKeyStore", "");
 		String sslKeyStorePassword = (String) getOrDefault(agentProperties, "sslKeyStorePassword", "");
-		
-		
+
+//		add queueToPolls support for agent instance
+		ArrayList<String> localQueueToPolls = new ArrayList<>();
+		Object queueToPolls = (Object) getOrDefault(agentProperties, "queueToPolls", new ArrayList<String>());
+		this.loadListFromConfig(queueToPolls,localQueueToPolls);
+//		add queueIgnores support for agent instance
+		ArrayList<String> localQueueIgnores = new ArrayList<>();
+		Object queueIgnores = (Object) getOrDefault(agentProperties, "queueIgnores", new ArrayList<String>());
+		this.loadListFromConfig(queueIgnores,localQueueIgnores);
+
+//		add queueIncludes support for agent instance
+		ArrayList<String> localQueueIncludes= new ArrayList<>();
+		Object queueIncludes = (Object) getOrDefault(agentProperties, "queueIncludes", new ArrayList<String>());
+		this.loadListFromConfig(queueIncludes,localQueueIncludes);
+
+//		add topicIgnores support for agent instance
+		ArrayList<String> localTopicIgnores = new ArrayList<>();
+		Object topicIgnores = (Object) getOrDefault(agentProperties, "topicIgnores", new ArrayList<String>());
+		this.loadListFromConfig(topicIgnores,localTopicIgnores);
+
+//		add topicIncludes support for agent instance
+		ArrayList<String> localTopicIncludes= new ArrayList<>();
+		Object topicIncludes = (Object) getOrDefault(agentProperties, "topicIncludes", new ArrayList<String>());
+		this.loadListFromConfig(topicIncludes,localTopicIncludes);
+
+
 		if (port == null) {
 			port = DEFAULT_PORT;
 		}
@@ -127,13 +151,37 @@ public class MQAgentFactory extends AgentFactory {
 		agentConfig.setSslTrustStorePassword(sslTrustStorePassword);
 		agentConfig.setSslKeyStore(sslKeyStore);
 		agentConfig.setSslKeyStorePassword(sslKeyStorePassword);
-		
-		agentConfig.addToQueueIgnores(globalQueueIgnores);
-		agentConfig.addToQueueIncludes(globalQueueIncludes);
-		agentConfig.addToTopicIgnores(globalTopicIgnores);
-		agentConfig.addToTopicIncludes(globalTopicIncludes);
-		agentConfig.addToQueueToPolls(globalQueueToPolls);
-		
+
+		if (localQueueToPolls.isEmpty()) {
+			agentConfig.addToQueueToPolls(globalQueueToPolls);
+		}else{
+			agentConfig.addToQueueToPolls(localQueueToPolls);
+		}
+
+		if (localQueueIgnores.isEmpty()) {
+			agentConfig.addToQueueIgnores(globalQueueIgnores);
+		}else{
+			agentConfig.addToQueueIgnores(localQueueIgnores);
+		}
+
+		if (localQueueIncludes.isEmpty()) {
+			agentConfig.addToQueueIncludes(globalQueueIncludes);
+		}else{
+			agentConfig.addToQueueIncludes(localQueueIncludes);
+		}
+
+		if (localTopicIgnores.isEmpty()) {
+			agentConfig.addToTopicIgnores(globalTopicIgnores);
+		}else{
+			agentConfig.addToTopicIgnores(localTopicIgnores);
+		}
+
+		if (localTopicIncludes.isEmpty()) {
+			agentConfig.addToTopicIncludes(globalTopicIncludes);
+		}else{
+			agentConfig.addToTopicIncludes(localTopicIncludes);
+		}
+
 		MQAgent agent = new MQAgent(agentConfig, dailyMaintenanceErrorScanTime);
 		return agent ;
 	}
