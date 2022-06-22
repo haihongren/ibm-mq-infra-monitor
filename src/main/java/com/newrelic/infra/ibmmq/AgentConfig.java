@@ -20,12 +20,72 @@ public class AgentConfig {
 	private String serverAuthUser = StringUtils.EMPTY;
 	private String serverAuthPassword = StringUtils.EMPTY;
 	private String serverChannelName = "SYSTEM.DEF.SVRCONN";
+//	add cipherSuite for SSL support hren
+	private String cipherSuite = StringUtils.EMPTY;
+	private String modelQueue = "";
+	private String commandQueue = "";
+	
+	private String sslTrustStore = "";
+	private String sslTrustStorePassword = "";
+	private String sslKeyStore = "";
+	private String sslKeyStorePassword = "";
+	
+	public String getSslTrustStore() {
+		return sslTrustStore;
+	}
+
+	public void setSslTrustStore(String sslTrustStore) {
+		this.sslTrustStore = sslTrustStore;
+	}
+
+	public String getSslTrustStorePassword() {
+		return sslTrustStorePassword;
+	}
+
+	public void setSslTrustStorePassword(String sslTrustStorePassword) {
+		this.sslTrustStorePassword = sslTrustStorePassword;
+	}
+
+	public String getSslKeyStore() {
+		return sslKeyStore;
+	}
+
+	public void setSslKeyStore(String sslKeyStore) {
+		this.sslKeyStore = sslKeyStore;
+	}
+
+	public String getSslKeyStorePassword() {
+		return sslKeyStorePassword;
+	}
+
+	public void setSslKeyStorePassword(String sslKeyStorePassword) {
+		this.sslKeyStorePassword = sslKeyStorePassword;
+	}
+
+	public String getModelQueue() {
+		return modelQueue;
+	}
+
+	public void setModelQueue(String modelQueue) {
+		this.modelQueue = modelQueue;
+	}
+
+	public String getCommandQueue() {
+		return commandQueue;
+	}
+
+	public void setCommandQueue(String commandQueue) {
+		this.commandQueue = commandQueue;
+	}
+
 	private String serverQueueManagerName = null;
 	List<Pattern> queueIgnores = new ArrayList<>();
 	List<Pattern> queueIncludes = new ArrayList<>();
 	List<Pattern> topicIgnores = new ArrayList<>();
 	List<Pattern> topicIncludes = new ArrayList<>();
-
+//	add queueToPolls support hren
+	List<String> queueToPolls = new ArrayList<>();
+	
 	private boolean reportEventMessages = false;
 	private boolean reportMaintenanceErrors = false;
 	private boolean monitorErrorLogs;
@@ -38,6 +98,15 @@ public class AgentConfig {
 	private String errorLogPath;
 	private String agentTempPath;
 
+
+	public void setcipherSuite(String cipherSuite) {
+		this.cipherSuite = cipherSuite;
+	}
+
+	public String getcipherSuite() {
+		return this.cipherSuite;
+	}
+	
 	public String getErrorLogPath() {
 		return errorLogPath;
 	}
@@ -155,13 +224,27 @@ public class AgentConfig {
 		addPatternsToList(adds, topicIncludes);
 	}
 	
+	public void addToQueueToPolls(List<String> adds) {
+		if (adds.size() ==0) {
+			adds.add("*");
+		}
+		addQueueToPollToList(adds, queueToPolls);
+
+	}
+	
 	private void addPatternsToList(List<String> adds, List<Pattern> list) {
 		for (String s : adds) {
 			Pattern pattern = Pattern.compile(s.trim(), Pattern.CASE_INSENSITIVE);
 			list.add(pattern);
 		}
 	}
+	private void addQueueToPollToList(List<String> adds, List<String> list) {
+		for (String s : adds) {
+			list.add(s.trim());
+		}
+	}
 
+	
 	public boolean reportEventMessages() {
 		return reportEventMessages;
 	}

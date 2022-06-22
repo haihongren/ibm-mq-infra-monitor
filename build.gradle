@@ -1,8 +1,9 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
-apply plugin: 'findbugs'
+//apply plugin: 'FindBugs'
 apply plugin: 'com.palantir.jacoco-coverage'
 apply plugin: 'com.palantir.jacoco-full-report'
+apply plugin: 'project-report'
 
 sourceCompatibility = JavaVersion.VERSION_1_7
 targetCompatibility = JavaVersion.VERSION_1_7
@@ -38,8 +39,8 @@ dependencies {
     compile "com.newrelic.experts:infra_publish:${project['infra_publish.version']}"
     compile "ch.qos.logback:logback-classic:${project['logback-classic.version']}"
     compile group: 'org.apache.commons', name: 'commons-lang3', version: "${project['apache_commons-lang3.version']}"
-
-    testCompile "com.google.code.findbugs:annotations:${project['findbugs.version']}"
+	compile 'io.grpc:grpc-netty:1.5.0'
+//    testCompile "com.google.code.findbugs:annotations:${project['findbugs.version']}"
     testCompile "junit:junit:${project['junit.version']}"
     testCompile "org.mockito:mockito-core:${project['mockito.version']}"
 
@@ -48,6 +49,11 @@ dependencies {
     provided fileTree(dir: 'mqlib', includes: ['*.jar'])
 }
 
+//project.version =  '_' + getTimestamp()
+def getTimestamp() {
+    //date_Hours, minutes, and seconds_millisecond
+    return new Date().format('yyyyMMdd_HHmm')
+}
 jar {
     dependsOn configurations.runtime
     from {
@@ -61,7 +67,10 @@ jar {
                     'Implementation-Version' : version
 
     }
-    archiveName 'plugin.jar'
+
+    archivesBaseName = "plugin"
+    archiveClassifier='' + getTimestamp()
+//    archiveName 'plugin.jar'
 }
 
 task copyJarToBin(type: Copy) {
@@ -127,15 +136,15 @@ tasks.withType(FindBugs) {
     html.enabled = System.getenv("JENKINS_URL") == null
   }
 }
-findbugs {
-  // Manage which findbugs rules you want to apply either by editing FindBugsFilter.xml for general rules
-  // or by adding @SuppressFBWarnings annotations to specific methods/classes in your Java code files
-  excludeFilter = file("$project.rootDir/FindBugsFilter.xml")
-  reportsDir = file("$project.buildDir/findbugsReports")
-  ignoreFailures = false
-  effort = "max"
-  reportLevel = "low"
-}
+//findbugs {
+//  // Manage which findbugs rules you want to apply either by editing FindBugsFilter.xml for general rules
+//  // or by adding @SuppressFBWarnings annotations to specific methods/classes in your Java code files
+//  excludeFilter = file("$project.rootDir/FindBugsFilter.xml")
+//  reportsDir = file("$project.buildDir/findbugsReports")
+//  ignoreFailures = false
+//  effort = "max"
+//  reportLevel = "low"
+//}
 
 // Jacoco is responsible for tracking how much of your code has been tested
 // See: https://github.com/palantir/gradle-jacoco-coverage

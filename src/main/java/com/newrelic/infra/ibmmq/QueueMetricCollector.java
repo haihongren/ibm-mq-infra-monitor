@@ -33,63 +33,69 @@ public class QueueMetricCollector {
 	private AgentConfig agentConfig = null;
 
 	public QueueMetricCollector(AgentConfig config) {
-		this.agentConfig  = config;
+		this.agentConfig = config;
 	}
 
-    public void reportQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+	public void reportQueueStats(PCFMessageAgent agent, MetricReporter metricReporter,
+			Map<String, List<Metric>> metricMap, String queueToPoll) {
 		try {
-			logger.debug("Getting Queue metrics for queueManager: " + agent.getQManagerName().trim());
+			logger.debug("Getting Queue metrics for queueManager: " + agent.getQManagerName().trim() + " QUEUE:"
+					+ queueToPoll);
 
-			// Prepare PCF command to inquire queue status (status type) 
-			PCFMessage inquireQueue = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q); 
+			// Prepare PCF command to inquire queue status (status type)
+			PCFMessage inquireQueue = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q);
 
-			inquireQueue.addParameter(MQConstants.MQCA_Q_NAME, "*");
+			inquireQueue.addParameter(MQConstants.MQCA_Q_NAME, queueToPoll);
 			inquireQueue.addParameter(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_LOCAL);
 			inquireQueue.addParameter(MQConstants.MQIACF_Q_ATTRS,
-					new int[] { 
-							MQConstants.MQIA_CURRENT_Q_DEPTH,
-							MQConstants.MQIA_MAX_Q_DEPTH,
-							MQConstants.MQIA_OPEN_INPUT_COUNT,
-							MQConstants.MQIA_OPEN_OUTPUT_COUNT, 
-							MQConstants.MQIA_Q_TYPE
-						});
+					new int[] { MQConstants.MQIA_CURRENT_Q_DEPTH, MQConstants.MQIA_MAX_Q_DEPTH,
+							MQConstants.MQIA_OPEN_INPUT_COUNT, MQConstants.MQIA_OPEN_OUTPUT_COUNT,
+							MQConstants.MQIA_Q_TYPE });
 
 			PCFMessage[] responses = agent.send(inquireQueue);
 
 			logger.debug("{} queues returned by this query", responses.length);
-			
+
 			int skipCount = 0;
 			int reportingCount = 0;
 			for (int j = 0; j < responses.length; j++) {
 				PCFMessage response = responses[j];
-				String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
 
-				int currentDepth = response.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
-				int maxDepth = response.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
-				int openInputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
-				int openOutputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
-				//int qTyp = response.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
+				if ((response.getCompCode() == MQConstants.MQCC_OK)
+						&& (response.getParameterValue(MQConstants.MQCA_Q_NAME) != null)) {
 
-                int qDepthPercent =  (maxDepth>0)? (currentDepth*100 / maxDepth  ) : 0 ;
+					String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
 
-				if (!isQueueIgnored(qName)) {
-					reportingCount++;
-					if (qName != null) {
-						String queueName = qName.trim();
-						List<Metric> metricset = new LinkedList<Metric>();
-						addCommonAttribute(metricset, queueName);
+					int currentDepth = response.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
+					int maxDepth = response.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
+					int openInputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
+					int openOutputCount = response.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
+					// int qTyp = response.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
 
-						metricset.add(new GaugeMetric(QueueSampleConstants.Q_DEPTH, currentDepth));
-						metricset.add(new GaugeMetric(QueueSampleConstants.Q_MAX_DEPTH, maxDepth));
-						metricset.add(new GaugeMetric(QueueSampleConstants.OPEN_INPUT_COUNT, openInputCount));
-						metricset.add(new GaugeMetric(QueueSampleConstants.OPEN_OUTPUT_COUNT, openOutputCount));
+					int qDepthPercent = (maxDepth > 0) ? (currentDepth * 100 / maxDepth) : 0;
 
-                        metricset.add(new GaugeMetric(QueueSampleConstants.Q_DEPTH_PERCENT, qDepthPercent));
-						metricMap.put(queueName, metricset);
-						logger.debug("[queue_name: {}, queue_depth: {}]", queueName, currentDepth);
+					if (!isQueueIgnored(qName)) {
+						reportingCount++;
+						if (qName != null) {
+							String queueName = qName.trim();
+							List<Metric> metricset = new LinkedList<Metric>();
+							addCommonAttribute(metricset, queueName);
+
+							metricset.add(new GaugeMetric(QueueSampleConstants.Q_DEPTH, currentDepth));
+							metricset.add(new GaugeMetric(QueueSampleConstants.Q_MAX_DEPTH, maxDepth));
+							metricset.add(new GaugeMetric(QueueSampleConstants.OPEN_INPUT_COUNT, openInputCount));
+							metricset.add(new GaugeMetric(QueueSampleConstants.OPEN_OUTPUT_COUNT, openOutputCount));
+
+							metricset.add(new GaugeMetric(QueueSampleConstants.Q_DEPTH_PERCENT, qDepthPercent));
+							metricMap.put(queueName, metricset);
+							logger.debug("[queue_name: {}, queue_depth: {}]", queueName, currentDepth);
+						}
+					} else {
+						skipCount++;
 					}
 				} else {
-					skipCount++;
+					logger.debug("skipping queue: [queue_name: {}, Completion Code: {}]",
+							response.getParameterValue(MQConstants.MQCA_Q_NAME), response.getCompCode());
 				}
 			}
 
@@ -100,13 +106,16 @@ public class QueueMetricCollector {
 		}
 	}
 
-	public void addResetQueueStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
+	public void addResetQueueStats(PCFMessageAgent agent, MetricReporter metricReporter,
+			Map<String, List<Metric>> metricMap, String queueToPoll) {
 		try {
 
-			logger.debug("Getting ResetQueueStats metrics for queueManager: " + agentConfig.getServerQueueManagerName());
+			logger.debug("Getting ResetQueueStats metrics for queueManager: " + agentConfig.getServerQueueManagerName()
+					+ " QUEUE:" + queueToPoll);
 
 			PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_RESET_Q_STATS);
-			inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
+//			hren queuesToMonitor
+			inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, queueToPoll);
 
 			PCFMessage[] responses = agent.send(inquireQueueStatus);
 			for (int j = 0; j < responses.length; j++) {
@@ -120,10 +129,10 @@ public class QueueMetricCollector {
 					String queueName = qName.trim();
 					List<Metric> metricset = metricMap.get(queueName);
 					if (metricset != null) {
-                        metricset.add(new GaugeMetric(QueueSampleConstants.HIGH_Q_DEPTH, highQDepth));
+						metricset.add(new GaugeMetric(QueueSampleConstants.HIGH_Q_DEPTH, highQDepth));
 						metricset.add(new GaugeMetric(QueueSampleConstants.MSG_DEQ_COUNT, msgDeqCount));
 						metricset.add(new GaugeMetric(QueueSampleConstants.MSG_ENQ_COUNT, msgEnqCount));
-						metricset.add(new GaugeMetric(QueueSampleConstants.TIME_SINCE_RESET, timeSinceReset));	
+						metricset.add(new GaugeMetric(QueueSampleConstants.TIME_SINCE_RESET, timeSinceReset));
 					}
 				}
 			}
@@ -132,56 +141,58 @@ public class QueueMetricCollector {
 		}
 	}
 
-    public void addQueueStatusStats(PCFMessageAgent agent, MetricReporter metricReporter, Map<String, List<Metric>> metricMap) {
-        try {
-            logger.debug("Getting additional Queue Status metrics for queueManager: " + agent.getQManagerName());
+	public void addQueueStatusStats(PCFMessageAgent agent, MetricReporter metricReporter,
+			Map<String, List<Metric>> metricMap, String queueToPoll) {
+		try {
+			logger.debug("Getting additional Queue Status metrics for queueManager: " + agent.getQManagerName()
+					+ " QUEUE:" + queueToPoll);
 
-            // Prepare PCF command to inquire queue status (status type)
-            PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_STATUS);
+			// Prepare PCF command to inquire queue status (status type)
+			PCFMessage inquireQueueStatus = new PCFMessage(CMQCFC.MQCMD_INQUIRE_Q_STATUS);
 
-            inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, "*");
-            inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);
-            inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS,
-                    new int[] {
-                            MQConstants.MQIACF_OLDEST_MSG_AGE,
-                            MQConstants.MQIACF_UNCOMMITTED_MSGS,
-                            MQConstants.MQCACF_LAST_GET_DATE, MQConstants.MQCACF_LAST_GET_TIME,
-                            MQConstants.MQCACF_LAST_PUT_DATE, MQConstants.MQCACF_LAST_PUT_TIME
-                    });
+			inquireQueueStatus.addParameter(MQConstants.MQCA_Q_NAME, queueToPoll);
+			inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);
+			inquireQueueStatus.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS,
+					new int[] { MQConstants.MQIACF_OLDEST_MSG_AGE, MQConstants.MQIACF_UNCOMMITTED_MSGS,
+							MQConstants.MQCACF_LAST_GET_DATE, MQConstants.MQCACF_LAST_GET_TIME,
+							MQConstants.MQCACF_LAST_PUT_DATE, MQConstants.MQCACF_LAST_PUT_TIME });
 
-            PCFMessage[] responses = agent.send(inquireQueueStatus);
-            
-            for (int j = 0; j < responses.length; j++) {
-                PCFMessage response = responses[j];
-                String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
+			PCFMessage[] responses = agent.send(inquireQueueStatus);
 
-                int oldestMsgAge = response.getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
-                int uncommittedMsgs = response.getIntParameterValue(MQConstants.MQIACF_UNCOMMITTED_MSGS);
-                String lastGetDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
-                String lastGetTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
-                String lastPutDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
-                String lastPutTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
+			for (int j = 0; j < responses.length; j++) {
+				PCFMessage response = responses[j];
+				String qName = response.getStringParameterValue(MQConstants.MQCA_Q_NAME);
 
-                String queueName = qName.trim();
+				int oldestMsgAge = response.getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
+				int uncommittedMsgs = response.getIntParameterValue(MQConstants.MQIACF_UNCOMMITTED_MSGS);
+				String lastGetDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
+				String lastGetTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
+				String lastPutDate = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
+				String lastPutTime = response.getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
 
-                List<Metric> metricset = metricMap.get(queueName);
-                if (metricset != null) {
-                    metricset.add(new GaugeMetric(QueueSampleConstants.OLDEST_MSG_AGE, oldestMsgAge));
-                    metricset.add(new GaugeMetric(QueueSampleConstants.UNCOMITTED_MSGS, uncommittedMsgs));
+				String queueName = qName.trim();
 
-                    metricset.add(new AttributeMetric(QueueSampleConstants.LAST_GET_DATE_TIME, String.format("%s %s",lastGetDate ,lastGetTime).trim()));
-                    metricset.add(new AttributeMetric(QueueSampleConstants.LAST_PUT_DATE_TIME, String.format("%s %s",lastPutDate ,lastPutTime).trim()));
-                }
-            }
-        } catch (Throwable t) {
-            logger.error("Exception occurred " + "while getting additional Queue Status metrics for queueManager: " + agent.getQManagerName(), t);
-        }
-    }
+				List<Metric> metricset = metricMap.get(queueName);
+				if (metricset != null) {
+					metricset.add(new GaugeMetric(QueueSampleConstants.OLDEST_MSG_AGE, oldestMsgAge));
+					metricset.add(new GaugeMetric(QueueSampleConstants.UNCOMITTED_MSGS, uncommittedMsgs));
+
+					metricset.add(new AttributeMetric(QueueSampleConstants.LAST_GET_DATE_TIME,
+							String.format("%s %s", lastGetDate, lastGetTime).trim()));
+					metricset.add(new AttributeMetric(QueueSampleConstants.LAST_PUT_DATE_TIME,
+							String.format("%s %s", lastPutDate, lastPutTime).trim()));
+				}
+			}
+		} catch (Throwable t) {
+			logger.error("Exception occurred " + "while getting additional Queue Status metrics for queueManager: "
+					+ agent.getQManagerName(), t);
+		}
+	}
 
 	private boolean isQueueIgnored(String qName) {
-	    if (StringUtils.isBlank(qName)){
-	        return true;
-        }
+		if (StringUtils.isBlank(qName)) {
+			return true;
+		}
 
 		for (Pattern includePattern : agentConfig.queueIncludes) {
 			if (includePattern.matcher(qName).matches()) {
@@ -198,18 +209,16 @@ public class QueueMetricCollector {
 		return false;
 	}
 
+	private void addCommonAttribute(List<Metric> metricset, String queueName) {
+		if ((metricset != null && metricset.size() > 0) || StringUtils.isBlank(queueName)) {
+			return;
+		}
 
+		metricset.add(new AttributeMetric(EventConstants.PROVIDER, EventConstants.IBM_PROVIDER));
+		metricset.add(new AttributeMetric(EventConstants.OBJECT_ATTRIBUTE, EventConstants.OBJ_ATTR_TYPE_QUEUE));
+		metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_NAME, agentConfig.getServerQueueManagerName()));
+		metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_HOST, agentConfig.getServerHost()));
+		metricset.add(new AttributeMetric(EventConstants.Q_NAME, queueName.trim()));
 
-    private void addCommonAttribute(List<Metric> metricset, String queueName ){
-	    if ((metricset != null && metricset.size() > 0) || StringUtils.isBlank(queueName)){
-	        return;
-        }
-
-        metricset.add(new AttributeMetric(EventConstants.PROVIDER, EventConstants.IBM_PROVIDER));
-        metricset.add(new AttributeMetric(EventConstants.OBJECT_ATTRIBUTE, EventConstants.OBJ_ATTR_TYPE_QUEUE));
-        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_NAME, agentConfig.getServerQueueManagerName()));
-        metricset.add(new AttributeMetric(EventConstants.Q_MANAGER_HOST, agentConfig.getServerHost()));
-        metricset.add(new AttributeMetric(EventConstants.Q_NAME, queueName.trim()));
-
-    }
+	}
 }
